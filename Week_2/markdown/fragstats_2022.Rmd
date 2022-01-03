@@ -44,11 +44,11 @@ library(tidyverse)
 library(sf)
 ```
 
-Read in csvs for 2001 and 2011 land use data. You will have to find the appropriate filepath for where these data are stored on your machine.
+Read in csvs for 2001 and 2011 land use data. This tutorial grabs the data from the class Github repo - if you have data on your machine, you will have to find the appropriate filepath for where these data are stored on your machine (e.g. "C//mycomputer/myfolder/myfile.txt").
 
 ```{r read_data, message=FALSE, warning=FALSE, include=TRUE}
-a <- read.csv("~/Github/CPLN_675/Week_2/data/2001.txt")
-b <- read.csv("~/Github/CPLN_675/Week_2/data/2011.txt")
+a <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/2001.txt")
+b <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/2011.txt")
 ```
 
 # 3. Explore and clean data
@@ -211,7 +211,7 @@ summarize2 <- cbind(summarize2001, summarize2011) %>%
 Import the Chester County boundary shapefile
 
 ```{r import_shp, echo=TRUE}
-townsShapefile <- read_sf("~/Github/CPLN_675/Week_2/data/Chester_MuniBoundaries.geojson")
+townsShapefile <- read_sf("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/Chester_MuniBoundaries.geojson")
 ```
 
 Let's examine it - it's an `sf` object - like a data frame but with a geometry attached. Use the `View()` and `glimpse` commands to look at the tabular view of the data.
