@@ -78,7 +78,7 @@ Notice we "pipe" the `select` command to dataframe `a` using the `%>%` operator 
 
 ```{r create_a2, echo=TRUE}
 a2 <- a %>%
-  select(gridcode, area, perimeter, iso, MUNI_NAME)
+  dplyr::select(gridcode, area, perimeter, iso, MUNI_NAME)
 ```
 
 Let's use the `glimpse` function to look at our new data frame
@@ -100,7 +100,7 @@ We can do the same for data frame `b`. Notice here, I will add the year column l
 
 ```{r create_var_b, echo=TRUE}
 b2 <- b %>%
-  select(gridcode, area, perimeter, iso, MUNI_NAME) %>%
+  dplyr::select(gridcode, area, perimeter, iso, MUNI_NAME) %>%
   mutate(year = "2011")
 ```
 
@@ -210,7 +210,7 @@ summarize2 <- cbind(summarize2001, summarize2011) %>%
 Import the Chester County boundary shapefile
 
 ```{r import_shp, echo=TRUE}
-townsShapefile <- read_sf("~/Clients/MUSA_Teaching_and_Admin/CPLN_675_2020/wk_2/data/ChesterCounty_MuniBoundaries201107.shp")
+townsShapefile <- read_sf("~/Github/CPLN_675/Week_2/data/ChesterCounty_MuniBoundaries201107.shp")
 ```
 
 Let's examine it - it's an `sf` object - like a data frame but with a geometry attached. Use the `View()` and `glimpse` commands to look at the tabular view of the data.
