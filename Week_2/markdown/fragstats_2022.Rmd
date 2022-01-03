@@ -6,7 +6,6 @@ output:
   html_document:
     toc: true
     toc_float: true
-    code_folding: "hide"
     code_download: true
 ---
 
@@ -18,17 +17,19 @@ library(knitr)
 
 # How to use this document
 
-This is an `R Markdown` document - it's an annotated script of data routines in R.
+This is an `R Markdown` document - it's an annotated script of data routines in R. You are going to use this file format to present data for your midterm and your final. Look at the button on the top right - it lets you download the `rmd` file that is behind this document. You can do that and run the code out of R Studio as an rmd -or- you can cut and paste these code into your R Studio console.
 
 # Learning objectives
 
 - See how some basic commands function in R that are used to load, examine, manipulate and visualize data.
 
-- Observe how R can be used to wrangle data using commans like `mutate` and `select`.
+- Observe how R can be used to wrangle data using `dplyr` commands like `mutate` and `select`.
 
-- See how the `pipe` operator works to chain operations together
+- See how the `pipe` operator works to chain operations together.
 
-- Observe the use of R as a GIS
+- Summarize some data using `dplyr` and the `summarize` command.
+
+- Observe the use of R as a GIS for mapping.
 
 # 1. Calculating land use fragmentation using R
 
@@ -210,7 +211,7 @@ summarize2 <- cbind(summarize2001, summarize2011) %>%
 Import the Chester County boundary shapefile
 
 ```{r import_shp, echo=TRUE}
-townsShapefile <- read_sf("~/Github/CPLN_675/Week_2/data/ChesterCounty_MuniBoundaries201107.shp")
+townsShapefile <- read_sf("~/Github/CPLN_675/Week_2/data/Chester_MuniBoundaries.geojson")
 ```
 
 Let's examine it - it's an `sf` object - like a data frame but with a geometry attached. Use the `View()` and `glimpse` commands to look at the tabular view of the data.
