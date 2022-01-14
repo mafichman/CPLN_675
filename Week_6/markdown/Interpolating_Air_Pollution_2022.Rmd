@@ -1,0 +1,269 @@
+---
+title: "Interpolating Air Pollution Dynamics with Regression"
+author: "Ken Steif & Michael Fichman"
+date: "1/14/2022"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_download: true
+---
+
+```{r setup, include=FALSE,message = FALSE,cache=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=999)
+library(knitr)
+```
+
+
+# 1 Introduction
+
+Weather, air pollution and elevation are typically represented as continuous spatial processes, but typically derived from discrete sample points like weather stations, air quality sensors and GPS units. This module teaches students how convert discrete samples to continuous spatial ‘surfaces’ and along the way, get an introduction to geospatial prediction.
+
+Begin by opening the Mid_Atlantic_EPA_Dataset shapefile data in ArcGIS and explore it. The ozoneHigh field is the highest measure of ozone sampled for 2016 at a given grid cell throughout the mid-Atlantic United States. Ozone is good in the stratosphere where it protects Earth from the Sun’s ultraviolet rays, but bad at ground-level because of its effects on respitory health. Ground level ozone results from sunlight heating industrial pollutants.
+
+Grid cells denoted by training == 1 are those areas where EPA maintains an ozone air quality sensor. The purpose of this first exercise is to predict ozone for all the locations where there are no sensors.
+
+What do you think should be our predictive strategy? Why is the spatial component so important here?
+
+## 1.1 Kriging and IDW in ArcGIS
+
+The first exercise will have you perform both IDW and kriging on this data in ArcGIS. Then we will come back to R to take a regression approach.
+
+- In ArcGIS - map ozoneHigh and some of the other other features in the data
+
+- Perform IDW and convert the raster to vector via Zonal Statistics as Table. create an IDW_pred in the Mid_Atlantic_EPA_Dataset.
+
+- Perform kriging and convert the raster to vector via Zonal Statistics as Table. Create an krige_pred in the Mid_Atlantic_EPA_Dataset.
+
+## 1.2 Calculate a spatial lag in ArcGIS
+
+Now that we’ve seen some more traditional interpolation techniques, let’s see what a regression can do for us.
+
+We’re going to begin with some instructions on how to create the spatial lag varaible in ArcGIS. This is the variable that will allow us to model the spatial autocorrelation. It is defined as the average ozoneHigh of any locations k nearest training neighbors.
+
+- Create a new shapefile of just the training grid cells, called training.
+
+- Using the ‘Near Table’ tool, set the Mid-Atlantic dataset as the Input Features and usetraining as the Near Features
+
+- To specify how many nearest neighbors to measure distance to, uncheck ‘Find only closest feature’ and set ‘Maximum number of closest features to 3’. Call this new table nearTraining.
+
+- Note that the new table has the distance from each IN_FID from the Mid-Atlantic shapefile to its nearest NEAR_FID from the training shapefile. Note there are three entries for each IN_FID because we chose 3 nearest neighbors.
+
+- We’re not interested in the distances per se - we want to get the average high ozone observation for each grid cell. To do so we
+
+- Join the original training shapefile to the Near Table using NEAR_FID from the latter to join to FID from the former. Call this new table nearTraining2. Now we know the ozoneHigh of each training grid cell where there’s an air quality sensor.
+
+- Next export nearTraining2 to its own dbf file.
+
+- Now we’re going to calculate the average ozoneHigh of each cell’s 3 nearest training neighbors. Add nearTraining2 to ArcMap; open the attribute table; right click on IN_FID and click ‘summarize’. Drop down the ozoneHigh field and click average. Name this table nearTraining3 and then OK to run the tool.
+
+- Note the new table has 1,025 rows (one for each cell in the original Mid-Atlantic shapefile) and an average ozoneHigh calculation.
+
+- Lastly join this to the original Mid-Atlantic shapefile and map the average_OzoneHigh.
+
+- Export this shapefile as `Mid_Atlantic_EPA_Dataset_withLag` Move this shapefile into R. If you can't complete this routine, you can catch up by using a similarly named data set found in the course github (the link to this data set, as a geojson, is below.)
+
+## 1.3 Explore the data
+
+Let’s start by setting your working directory, loading the requisite libraries, creating a mapTheme(), reading the epa shapefile and plotting it using the native sf plotting function. Note that if you are new to the sf package you should go run-through this tutorial.
+
+```{r}
+library(tidyverse)
+library(sf)
+library(gridExtra)
+library(viridis)
+```
+
+```{r mapTheme, echo=TRUE}
+mapTheme <- theme(
+    text = element_text( color = "black"),
+    plot.title = element_text(size = 14,colour = "black"),
+    plot.subtitle=element_text(face="italic"),
+    plot.caption=element_text(hjust=0),
+    axis.ticks = element_blank(),
+    panel.background = element_blank(),axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(colour = "black", fill=NA, size=2)
+  ) 
+```
+
+```{r}
+epa <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_6/data/wk6_airPollution/Mid_Atlantic_EPA_Dataset_withLag.geojson")
+```
+plot(epa)
+
+Let’s build some plots using ggplot. We begin with a map of ozone. How would you modify the below code block to get just the grid cells where trainin = 1? More info on colors here.
+```{r}
+ggplot() +
+  geom_sf(data=epa , aes(fill=ozoneHigh)) + 
+  scale_fill_viridis() +
+  labs(title="Ozone concentration by grid cell, Mid-Atlantic region") +
+  mapTheme
+```
+
+This map is strange. It’s representing grid cells for which there is no air quality sensor as having ozone of 0.000. That’s not quite correct, however. What is the next map doing different?
+```{r}
+ggplot() +
+  geom_sf(data=epa, fill="black", colour = NA) +
+  geom_sf(data= filter(epa, training == 1) , aes(fill=ozoneHigh)) + 
+  scale_fill_viridis() +
+  labs(title="Ozone concentration by grid cell, Mid-Atlantic region") +
+  mapTheme
+```
+# 2 Interpolating with regression
+
+In this section we’re going to build a regression model to predict ozone as a function of a set of independent variables or ‘features’. Let’s explore these.
+
+The first code block is a bit tricky. Feel free to run it line by line to get a better sense of how it works. st_centroid and st_coordinates together create a data frame of X and Y coordinates. This two columned data frame is the column bound or cbind to the orginal epa layer including a subset of variables.
+
+Pull out just the variables we want for this analysis. Then create two more quintile maps like the ones below and grid.arrange them into one data visualization. Include a title.
+```{r}
+epa2 <-
+  epa %>% 
+  st_centroid() %>% st_coordinates() %>%
+  cbind(
+    epa %>% 
+    dplyr::select(HwyDensity,distWater,sumDevelop,sumForest,
+           distI95,Population,distCities,training,
+           ozoneHigh,Ave_ozoneH))
+```
+Let’s then map two of these features using grid.arrange to splice them together.
+```{r}
+hwyPlot <- 
+  ggplot() +
+    geom_sf(data = epa2, aes(fill=HwyDensity)) + 
+    scale_fill_viridis(name="Highway density") +
+    mapTheme
+
+developPlot <- 
+  ggplot() +
+    geom_sf(data=epa2, aes(fill=sumDevelop)) + 
+    scale_fill_viridis(name="Developed area") +
+    mapTheme
+
+grid.arrange(hwyPlot,developPlot, ncol=1)
+```
+
+
+2.1 Build a regression - setup
+
+The goal is to predict ozoneHigh for every grid cell in our study area. However, we only have ozone data for a subset where training=1. Thus, the strategy is going to be to create a training set that we can use to train our model. When that model is robust, we will use it to predict for the entire dataset.
+
+Step 1 is to pull out a training set, like so.
+```{r}
+training <- 
+  epa2 %>%
+  filter(training == 1)
+```
+Which variables do you think might correlate with ozoneHigh? Let’s create a small multiple plot.
+```{r}
+training %>% 
+  dplyr::select(-training) %>%
+  st_drop_geometry() %>%
+  gather(Variable, Value, -ozoneHigh) %>%
+    ggplot(aes(Value, ozoneHigh)) +
+      geom_point() +
+      geom_smooth(method = "lm", se=FALSE) +
+      facet_wrap(~Variable, scales="free", ncol=5)
+```
+2.2 Build a regression - first regression
+
+Let’s estimate the ‘kitchen sink’ regression with all of our variables but the spatial variables. Note the embeded use of ’dplyrin thelm` command.
+
+Describe the summary and its goodness of fit.
+```{r}
+reg <- lm(ozoneHigh ~ ., data=training %>% 
+                                   as.data.frame() %>%
+                                   select(-Ave_ozoneH,-geometry,-training,-X,-Y))
+summary(reg)
+
+```
+
+Estimate it again with x and y. What do you notice. Why?
+```{r}
+reg2 <- lm(ozoneHigh ~ ., data=training %>% 
+                                   as.data.frame() %>%
+                                   select(-Ave_ozoneH,-geometry,-training))
+summary(reg2)
+```
+
+2.2 Build a regression - Add the spatial lag
+
+What is a spatial lag? Why might that help us predict better?
+```{r}
+ggplot(training, aes(Ave_ozoneH, ozoneHigh)) +
+ geom_point() +
+ geom_smooth(method="lm",se=F) +
+ labs(title="Ozone as a function of the spatial lag of ozone")
+```
+Let’s include it in the regression
+```{r}
+reg.lag <- lm(ozoneHigh ~ ., data=training %>% 
+                                   as.data.frame() %>%
+                                   select(-geometry,-training))
+summary(reg.lag)
+```
+
+What happened to all the variables? Why?
+2.3 Goodness of fit
+
+R^2 is the go to goodness of fit indicator. Why? What is its interpretation?
+
+When we do predictive modeling however, R^2 can be misleading. A better way to think about error, when possible, is simply the differenec between the observed value and the predicted value.
+
+Let’s check out our predictions. First we create three new prediction fields and convert to long form - the format we need to create small multiple plots.
+
+```{r}
+training.summary <-
+  training %>% 
+    mutate(reg1.Pred = predict(reg, .),
+           reg2.Pred = predict(reg2, .),
+           reg.lag.Pred = predict(reg.lag, .)) %>%
+    dplyr::select(c(ozoneHigh, starts_with("reg"))) %>%
+    gather(Variable, Value, -ozoneHigh, -geometry) 
+
+training.summary
+```
+
+Next, create three plots of predictions for observed. Which model looks most accurate?
+```{r}
+ggplot(data = training.summary, aes(Value, ozoneHigh)) + 
+  geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~Variable, scales = "free")
+```
+
+Finally, we calculate the Mean Absolute Error. absError is the absolute value of the difference between observed ozoneHigh and the predicted. The group_by allows us to calculate the average error by each regression type. Which model is the strongest?
+
+```{r}
+st_drop_geometry(training.summary) %>%
+  mutate(absError = abs(ozoneHigh - Value)) %>%
+  group_by(Variable) %>%
+  summarize(MeanAbsoluteError = mean(absError))
+```
+Finally, let’s predict for the entire dataset which is our interpolated output.
+```{r}
+epa2 <- mutate(epa2, reg.lag.pred = predict(reg.lag, epa2))
+
+ggplot() +
+  geom_sf(data=epa2, aes(fill = reg.lag.pred)) + 
+  scale_fill_viridis() +
+  labs(title="Predicted ozone") +
+  mapTheme
+```
+Let’s visualize the prediction with the areas where we have air sensors (ie. training == 1). What can you conclude about the statistical reliability of our predictions given this map?
+
+```{r}
+epa2 <- mutate(epa2, reg.lag.pred = predict(reg.lag, epa2))
+
+ggplot() +
+  geom_sf(data=epa2, aes(fill = reg.lag.pred)) + 
+  geom_sf(data = st_centroid(filter(epa2, training == 1)), colour="black") +
+  scale_fill_viridis() +
+  labs(title="Predicted ozone") +
+  mapTheme
+```
+
