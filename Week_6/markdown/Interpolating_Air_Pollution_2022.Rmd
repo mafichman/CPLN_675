@@ -18,7 +18,7 @@ library(knitr)
 
 # 1 Introduction
 
-Weather, air pollution and elevation are typically represented as continuous spatial processes, but typically derived from discrete sample points like weather stations, air quality sensors and GPS units. This module teaches students how convert discrete samples to continuous spatial ‘surfaces’ and along the way, get an introduction to geospatial prediction.
+Weather, air pollution and elevation are typically represented as continuous spatial processes. However, they are typically derived from discrete sample points like weather stations, air quality sensors and GPS units and *interpolated* into surfaces. This module teaches students how convert discrete samples to continuous spatial ‘surfaces’ and along the way, get an introduction to geospatial prediction.
 
 Begin by opening the Mid_Atlantic_EPA_Dataset shapefile data in ArcGIS and explore it. The ozoneHigh field is the highest measure of ozone sampled for 2016 at a given grid cell throughout the mid-Atlantic United States. Ozone is good in the stratosphere where it protects Earth from the Sun’s ultraviolet rays, but bad at ground-level because of its effects on respitory health. Ground level ozone results from sunlight heating industrial pollutants.
 
@@ -26,9 +26,19 @@ Grid cells denoted by training == 1 are those areas where EPA maintains an ozone
 
 What do you think should be our predictive strategy? Why is the spatial component so important here?
 
+**Learning Objectives**
+
+1. Introduction to geospatial predictive modeling
+
+2. Understand the idea of spatial interpolation and compare and contrast methodological components.
+
+3. Use the "fishnet" as a vector alternative to raster GIS.
+
 ## 1.1 Kriging and IDW in ArcGIS
 
-The first exercise will have you perform both IDW and kriging on this data in ArcGIS. Then we will come back to R to take a regression approach.
+The first exercise in today's class will have you perform both IDW and kriging on this data in ArcGIS. Then we will come back to R to take a regression approach.
+
+The Arc module consists of the following steps:
 
 - In ArcGIS - map ozoneHigh and some of the other other features in the data
 
@@ -105,7 +115,8 @@ ggplot() +
   mapTheme
 ```
 
-This map is strange. It’s representing grid cells for which there is no air quality sensor as having ozone of 0.000. That’s not quite correct, however. What is the next map doing different?
+This map is strange. It’s representing grid cells for which there is no air quality sensor as having ozone of 0.000. That’s not quite correct, however. What is the next map doing differently?
+
 ```{r}
 ggplot() +
   geom_sf(data=epa, fill="black", colour = NA) +

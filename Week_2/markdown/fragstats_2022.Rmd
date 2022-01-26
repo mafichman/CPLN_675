@@ -33,7 +33,9 @@ This is an `R Markdown` document - it's an annotated script of data routines in 
 
 # 1. Calculating land use fragmentation using R
 
-The script in the markdown is preceded by a series of raster processing routines in ArcGIS whereby land use rasters for the years 2001 and 2011 are reclassified into developed/not developed lands and grouped into undeveloped fragments. Each of these fragments has its "isoperimetric quotient" calculated and is associated with its municipality.
+The script in the markdown is preceded by a series of raster processing routines in ArcGIS whereby land use rasters for the years 2001 and 2011 are reclassified into developed/not developed lands and grouped into undeveloped fragments. 
+
+Each of these fragments has its "isoperimetric quotient" calculated and is associated with its municipality.
 
 # 2. Loading libraries and data
 
@@ -44,83 +46,101 @@ library(tidyverse)
 library(sf)
 ```
 
-Read in csvs for 2001 and 2011 land use data. This tutorial grabs the data from the class Github repo - if you have data on your machine, you will have to find the appropriate filepath for where these data are stored on your machine (e.g. "C//mycomputer/myfolder/myfile.txt").
+Read in data for 2001 and 2011 land use data. This tutorial grabs the data from the class Github repo.
+
+If you have data on your machine, you will have to find the appropriate filepath for where these data are stored on your machine (e.g. "C//mycomputer/myfolder/myfile.txt").
 
 ```{r read_data, message=FALSE, warning=FALSE, include=TRUE}
-a <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/R_Data/2001.txt")
-b <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/R_Data/2011.txt")
+
+# 2001 data
+dat_2001 <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/R_Data/2001.txt")
+
+# 2011 data
+dat_2011 <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/R_Data/2011.txt")
 ```
 
 # 3. Explore and clean data
+
+## 3.1. Explore
 
 Let's look at our new data frames using some commands which ask about the nature or dimensions of our data.
 
 Try some of these functions in your console window:
 
 ```{r explore_data, eval=FALSE, message=FALSE, warning=FALSE}
-class(a)
-names(a)
-nrow(a)
-ncol(a)
-str(a)
+class(dat_2001)
+names(dat_2001)
+nrow(dat_2001)
+ncol(dat_2001)
+str(dat_2001)
 ```
 
 My personal favorite is `glimpse()` - it shows you most of what you need to know.
 
 ```{r glimpse_data, echo=TRUE}
-glimpse(a)
+glimpse(dat_2001)
 ```
 
-We will create two new dataframes which contain only the variables we need. We'll pull out only what we want - the `GRIDCODE` (total not developed patches), `AREA`, `perimeter`, `iso` and `MUNI_NAM` (town)
+## 3.2. Select relevant columns
 
-With the `tidyverse` and `dplyr`, you can use simple `select` command and subset the columns into a new dataframe - called `a2` - by name.
+We will create two new dataframes which contain only the variables we need. We'll pull out only what we want - 
 
-Notice we "pipe" the `select` command to dataframe `a` using the `%>%` operator (aka the pipe) which allows you to chain functions together. In plain English, here we are saying "From dataframe a, select the following columns and call that data frame a2"
+- `GRIDCODE` (total not developed patches)
 
-```{r create_a2, echo=TRUE}
-a2 <- a %>%
+-`AREA`
+
+-`perimeter`
+
+-`iso`
+
+- `MUNI_NAM` (town)
+
+First let's do this for our 2001 data.
+
+With the `tidyverse` and `dplyr`, you can use simple `select` command and subset the columns into a new dataframe - called `dat_2001_2` - by name.
+
+Notice we "pipe" the `select` command to dataframe `dat_2001` using the `%>%` operator (aka the pipe) which allows you to chain functions together. 
+
+In plain English, here we are saying "From dataframe `dat_2001`, select the following columns and call that data frame `dat_2001_2`"
+
+```{r create_dat_2001_2, echo=TRUE}
+dat_2001_2 <- dat_2001 %>%
   dplyr::select(gridcode, area, perimeter, iso, MUNI_NAME)
 ```
 
-Let's use the `glimpse` function to look at our new data frame
-
-```{r head_a, echo=FALSE}
-glimpse(a2)
-```
+You can use the `glimpse` function to look at your new data frame.
 
 We want to be able to append 2001 and 2011 data together and summarize them by year. In order to do this, both data frames need to have the same variable names. We are going to have to create a year variable to differentiate our data once both data frames are appended. We do so for each using the same column name.
 
-I also want to create a column called `year` which indicates that these are my 2001 data. I'm going to put them together later and I'll need to know which data are which. I can add that data using the `mutate` command from `dplyr`. In plain English, the operation here is as follows - "To data frame a2, mutate a new column called year and set it equal to the text (aka character) string "2001". Overwrite a2 with this new data frame".
+I also want to create a column called `year` which indicates that these are my 2001 data. I'm going to put them together later and I'll need to know which data are which. I can add that data using the `mutate` command from `dplyr`. In plain English, the operation here is as follows - "To data frame `dat_2001_2`, mutate a new column called year and set it equal to the text (aka character) string "2001". Overwrite `dat_2001_2` with this new data frame".
 
 ```{r create_year, echo=TRUE}
-a2 <- a2 %>%
+dat_2001_2 <- dat_2001_2 %>%
   mutate(year = "2001")
 ```
 
 We can do the same for data frame `b`. Notice here, I will add the year column like I did to `a2` but within the sequence of piped commands.
 
 ```{r create_var_b, echo=TRUE}
-b2 <- b %>%
+dat_2011_2 <- dat_2011 %>%
   dplyr::select(gridcode, area, perimeter, iso, MUNI_NAME) %>%
   mutate(year = "2011")
 ```
 
-We can use a boolean expression to see if our names are the same, or we can use the function `setdiff` to figure out what might be different
+We can use a "boolean expression to see if our names are the same, or we can use the function `setdiff` to figure out what might be different
 
 ```{r variable_check, echo=TRUE}
-names(a2) == names(b2)
-setdiff(names(a2), names(b2))
+names(dat_2001_2) == names(dat_2011_2)
+setdiff(names(dat_2001_2), names(dat_2011_2))
 ```
 
-Now we can append these data frames together by row using `rbind` ("row bind"). You can put two data frames together in this manner if they have the same number of columns and column names and types.
-
-Just to make sure this `rbind` went off without a hitch we will create a table to see if both years are present in the new data frame.
+Now we can append these data frames together by row using `rbind` ("row bind"). You can put two data frames together in this manner if they have congruent column names and types.
 
 ```{r bind_years, echo=TRUE}
-data <- rbind(a2,b2)
-
-table(data$year)
+data <- rbind(dat_2001_2, dat_2011_2)
 ```
+
+Want to make sure this `rbind` went off without a hitch? Take a look at it with the `View()` command.
 
 # 4. Summarize Data
 
