@@ -1,0 +1,65 @@
+# Step 13
+
+# In the Expression box:
+calcCN(!LandUse!, !SoilCode!)
+
+
+# In the Code Block box:
+
+def calcCN(LandUse, SoilCode):
+    if (LandUse == 1 and SoilCode == "A"):
+        return 100
+    elif (LandUse == 1 and SoilCode == "A/D"):
+        return 50
+    elif (LandUse == 1 and SoilCode == "B"):
+        return 100
+    elif (LandUse == 1 and SoilCode == "B/D"):
+        return 50
+    elif (LandUse == 1 and SoilCode == "C"):
+        return 100
+    elif (LandUse == 1 and SoilCode == "C/D"):
+        return 50
+    elif (LandUse == 1 and SoilCode == "D"):
+        return 100
+    elif (LandUse == 2 and SoilCode == "A"):
+        return 57
+    elif (LandUse == 2 and SoilCode == "A/D"):
+        return 71.5
+    elif (LandUse == 2 and SoilCode == "B"):
+        return 72
+    elif (LandUse == 2 and SoilCode == "B/D"):
+        return 79
+    elif (LandUse == 2 and SoilCode == "C"):
+        return 81
+    elif (LandUse == 2 and SoilCode == "C/D"):
+        return 83.5
+    elif (LandUse == 2 and SoilCode == "D"):
+        return 86
+    elif (LandUse == 3 and SoilCode == "A"):
+        return 30
+    elif (LandUse == 3 and SoilCode == "A/D"):
+        return 54
+    elif (LandUse == 3 and SoilCode == "B"):
+        return 58
+    elif (LandUse == 3 and SoilCode == "B/D"):
+        return 68
+    elif (LandUse == 3 and SoilCode == "C"):
+        return 71
+    elif (LandUse == 3 and SoilCode == "C/D"):
+        return 74.5
+    elif (LandUse == 3 and SoilCode == "D"):
+        return 78
+    elif (LandUse == 4 and SoilCode == "A"):
+        return 67
+    elif (LandUse == 4 and SoilCode == "A/D"):
+        return 77
+    elif (LandUse == 4 and SoilCode == "B"):
+        return 77
+    elif (LandUse == 4 and SoilCode == "B/D"):
+        return 82
+    elif (LandUse == 4 and SoilCode == "C"):
+        return 83
+    elif (LandUse == 4 and SoilCode == "C/D"):
+        return 85
+    elif (LandUse == 4 and SoilCode == "D"):
+        return 87
