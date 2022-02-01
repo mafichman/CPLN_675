@@ -1,6 +1,7 @@
-# Step 13
+# STEP 13
 
 # In the Expression box:
+
 calcCN(!LandUse!, !SoilCode!)
 
 
