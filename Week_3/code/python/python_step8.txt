@@ -1,0 +1,102 @@
+
+# STEP 8
+
+#---Calculating PctA---
+
+# In the Expression box:
+
+Reclass(!SoilCode!)
+
+# In the Code Block box:
+
+def Reclass(SoilCode):
+    if (SoilCode ==  "A"):
+        return 100
+    elif (SoilCode == "A/D"):
+        return 50
+    elif (SoilCode == "B"):
+        return 0
+    elif (SoilCode == "B/D"):
+        return 0
+    elif (SoilCode == "C"):
+        return 0
+    elif (SoilCode =="C/D"):
+        return 0
+    elif (SoilCode == "D"):
+        return 0
+    
+
+
+#---Calculating PctB---
+
+# In the Expression box:
+
+Reclass(!SoilCode!)
+
+# In the Code Block box:
+
+def Reclass(SoilCode):
+    if (SoilCode ==  "A"):
+        return 0
+    elif (SoilCode == "A/D"):
+        return 0
+    elif (SoilCode == "B"):
+        return 100
+    elif (SoilCode == "B/D"):
+        return 50
+    elif (SoilCode == "C"):
+        return 0
+    elif (SoilCode =="C/D"):
+        return 0
+    elif (SoilCode == "D"):
+        return 0
+
+
+#---Calculating PctC---
+
+# In the Expression box:
+
+Reclass(!SoilCode!)
+
+# In the Code Block box:
+
+def Reclass(SoilCode):
+    if (SoilCode ==  "A"):
+        return 0
+    elif (SoilCode == "A/D"):
+        return 0
+    elif (SoilCode == "B"):
+        return 0
+    elif (SoilCode == "B/D"):
+        return 0
+    elif (SoilCode == "C"):
+        return 100
+    elif (SoilCode =="C/D"):
+        return 50
+    elif (SoilCode == "D"):
+        return 0
+
+
+#---Calculating PctD---
+
+# In the Expression box:
+
+Reclass(!SoilCode!)
+
+# In the Code Block box:
+
+def Reclass(SoilCode):
+    if (SoilCode ==  "A"):
+        return 0
+    elif (SoilCode == "A/D"):
+        return 50
+    elif (SoilCode == "B"):
+        return 0
+    elif (SoilCode == "B/D"):
+        return 50
+    elif (SoilCode == "C"):
+        return 0
+    elif (SoilCode =="C/D"):
+        return 50
+    elif (SoilCode == "D"):
+        return 100
