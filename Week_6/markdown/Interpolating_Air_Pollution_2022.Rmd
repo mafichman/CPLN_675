@@ -1,5 +1,5 @@
 ---
-title: "Interpolating Air Pollution Dynamics with Regression"
+title: "CPLN 675: Interpolating Air Pollution Dynamics with Interpolation and Regression"
 author: "Ken Steif & Michael Fichman"
 date: "1/14/2022"
 output: 
@@ -16,27 +16,37 @@ library(knitr)
 ```
 
 
-# 1 Introduction
+# 1. Introduction
 
-Weather, air pollution and elevation are typically represented as continuous spatial processes. However, they are typically derived from discrete sample points like weather stations, air quality sensors and GPS units and *interpolated* into surfaces. This module teaches students how convert discrete samples to continuous spatial ‘surfaces’ and along the way, get an introduction to geospatial prediction.
+Weather, air pollution and elevation are typically represented as continuous spatial processes. However, they are often derived from discrete sample points like weather stations, air quality sensors and GPS units and *interpolated* into surfaces. This module teaches students how convert discrete samples of ozone to continuous spatial estimated ‘surfaces’. It also introduces regression-based geospatial predictive modeling.
 
-Begin by opening the Mid_Atlantic_EPA_Dataset shapefile data in ArcGIS and explore it. The ozoneHigh field is the highest measure of ozone sampled for 2016 at a given grid cell throughout the mid-Atlantic United States. Ozone is good in the stratosphere where it protects Earth from the Sun’s ultraviolet rays, but bad at ground-level because of its effects on respitory health. Ground level ozone results from sunlight heating industrial pollutants.
+The first part of the module contains instructions on how to conduct interpolation using kriging and inverse distance weighting procedures in ArcGIS and to calculate spatial lags.
 
-Grid cells denoted by training == 1 are those areas where EPA maintains an ozone air quality sensor. The purpose of this first exercise is to predict ozone for all the locations where there are no sensors.
+The second part of the module involves running a regression model in R to estimate ozone levels.
 
-What do you think should be our predictive strategy? Why is the spatial component so important here?
+## 1.2. Learning Objectives
 
-**Learning Objectives**
+- Understand the idea of spatial interpolation. Compare and contrast methodological approaches.
 
-1. Introduction to geospatial predictive modeling
+- Use the "fishnet" as a vector alternative to raster GIS.
 
-2. Understand the idea of spatial interpolation and compare and contrast methodological components.
+- Introduction to geospatial predictive modeling
 
-3. Use the "fishnet" as a vector alternative to raster GIS.
+# 2. Data
 
-## 1.1 Kriging and IDW in ArcGIS
+Our operations in ArcGIS will use the `Mid_Atlantic_EPA_Dataset.shp` file. Open these data in ArcGIS and explore them. 
 
-The first exercise in today's class will have you perform both IDW and kriging on this data in ArcGIS. Then we will come back to R to take a regression approach.
+The `ozoneHigh` field is the highest measure of ozone sampled for 2016 at a given grid cell throughout the mid-Atlantic United States. Ozone is good in the stratosphere where it protects Earth from the Sun’s ultraviolet rays, but bad at ground-level because of its effects on respiratory health.
+
+Grid cells denoted by `training == 1` are those areas where EPA maintains an ozone air quality sensor. The purpose of this first exercise is to predict ozone for all the locations where there are no sensors.
+
+**Questions:**
+
+What do you think should be our predictive strategy? 
+
+Why is the spatial component so important here?
+
+# 3. Interpolation in ArcGIS
 
 The Arc module consists of the following steps:
 
@@ -44,7 +54,7 @@ The Arc module consists of the following steps:
 
 - Perform IDW and convert the raster to vector via Zonal Statistics as Table. create an IDW_pred in the Mid_Atlantic_EPA_Dataset.
 
-- Perform kriging and convert the raster to vector via Zonal Statistics as Table. Create an krige_pred in the Mid_Atlantic_EPA_Dataset.
+- Go feature to point to create centroids, perform kriging and convert the raster to vector via Zonal Statistics as Table. Create an krige_pred in the Mid_Atlantic_EPA_Dataset.
 
 ## 1.2 Calculate a spatial lag in ArcGIS
 
@@ -78,7 +88,7 @@ We’re going to begin with some instructions on how to create the spatial lag v
 
 Let’s start by setting your working directory, loading the requisite libraries, creating a mapTheme(), reading the epa shapefile and plotting it using the native sf plotting function. Note that if you are new to the sf package you should go run-through this tutorial.
 
-```{r}
+```{r libraries, message = FALSE, warning = FALSE}
 library(tidyverse)
 library(sf)
 library(gridExtra)
@@ -101,7 +111,9 @@ mapTheme <- theme(
   ) 
 ```
 
-```{r}
+You can read in data in one of the following ways, either run the code and put your output from the ArcGIS exercise into the below straight from github
+
+```{r read data, message = FALSE, warning = FALSE}
 epa <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_6/data/wk6_airPollution/Mid_Atlantic_EPA_Dataset_withLag.geojson")
 ```
 plot(epa)
@@ -120,7 +132,8 @@ This map is strange. It’s representing grid cells for which there is no air qu
 ```{r}
 ggplot() +
   geom_sf(data=epa, fill="black", colour = NA) +
-  geom_sf(data= filter(epa, training == 1) , aes(fill=ozoneHigh)) + 
+  geom_sf(data= filter(epa, training == 1), 
+          aes(fill=ozoneHigh)) + 
   scale_fill_viridis() +
   labs(title="Ozone concentration by grid cell, Mid-Atlantic region") +
   mapTheme
@@ -129,9 +142,10 @@ ggplot() +
 
 In this section we’re going to build a regression model to predict ozone as a function of a set of independent variables or ‘features’. Let’s explore these.
 
-The first code block is a bit tricky. Feel free to run it line by line to get a better sense of how it works. st_centroid and st_coordinates together create a data frame of X and Y coordinates. This two columned data frame is the column bound or cbind to the orginal epa layer including a subset of variables.
+The first code block is a bit tricky. Feel free to run it line by line to get a better sense of how it works. `st_centroid` and `st_coordinates` together create a data frame of X and Y coordinates. This two columned data frame is the column bound or `cbind` to the orginal `epa` layer including a subset of variables.
 
 Pull out just the variables we want for this analysis. Then create two more quintile maps like the ones below and grid.arrange them into one data visualization. Include a title.
+
 ```{r}
 epa2 <-
   epa %>% 
