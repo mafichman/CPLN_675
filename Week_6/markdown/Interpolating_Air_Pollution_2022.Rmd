@@ -56,11 +56,11 @@ The Arc module consists of the following steps:
 
 - Go feature to point to create centroids, perform kriging and convert the raster to vector via Zonal Statistics as Table. Create an krige_pred in the Mid_Atlantic_EPA_Dataset.
 
-## 1.2 Calculate a spatial lag in ArcGIS
+## 3.1 Calculate a spatial lag in ArcGIS
 
 Now that we’ve seen some more traditional interpolation techniques, let’s see what a regression can do for us.
 
-We’re going to begin with some instructions on how to create the spatial lag varaible in ArcGIS. This is the variable that will allow us to model the spatial autocorrelation. It is defined as the average ozoneHigh of any locations k nearest training neighbors.
+We’re going to begin with some instructions on how to create the spatial lag variable in ArcGIS. This is the variable that will allow us to model the spatial autocorrelation. It is defined as the average ozoneHigh of any locations k nearest training neighbors.
 
 - Create a new shapefile of just the training grid cells, called training.
 
@@ -84,9 +84,13 @@ We’re going to begin with some instructions on how to create the spatial lag v
 
 - Export this shapefile as `Mid_Atlantic_EPA_Dataset_withLag` Move this shapefile into R. If you can't complete this routine, you can catch up by using a similarly named data set found in the course github (the link to this data set, as a geojson, is below.)
 
-## 1.3 Explore the data
+# 4 Exploratory Analysis
 
-Let’s start by setting your working directory, loading the requisite libraries, creating a mapTheme(), reading the epa shapefile and plotting it using the native sf plotting function. Note that if you are new to the sf package you should go run-through this tutorial.
+We'll bring these data into R and explore them prior to creating a regression model.
+
+## 4.1 Setup and Load Data
+
+Let’s start by loading the requisite libraries and creating a `mapTheme`, reading the epa shapefile and plotting it using the native sf plotting function. Note that if you are new to the sf package you should go run-through this tutorial.
 
 ```{r libraries, message = FALSE, warning = FALSE}
 library(tidyverse)
@@ -111,12 +115,24 @@ mapTheme <- theme(
   ) 
 ```
 
-You can read in data in one of the following ways, either run the code and put your output from the ArcGIS exercise into the below straight from github
+You can read in data in one of the following ways:
+
+1. Put your output from the ArcGIS exercise above into the below code block:
+
+```{r read_file, eval=FALSE}
+epa <- st_read("myfilepath/myfile.shp")
+```
+
+
+OR
+
+2. Load this dataset from Github (which should match your data from the above process):
 
 ```{r read data, message = FALSE, warning = FALSE}
 epa <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_6/data/wk6_airPollution/Mid_Atlantic_EPA_Dataset_withLag.geojson")
 ```
-plot(epa)
+
+## 4.2 Build some plots
 
 Let’s build some plots using ggplot. We begin with a map of ozone. How would you modify the below code block to get just the grid cells where trainin = 1? More info on colors here.
 ```{r}
@@ -138,7 +154,8 @@ ggplot() +
   labs(title="Ozone concentration by grid cell, Mid-Atlantic region") +
   mapTheme
 ```
-# 2 Interpolating with regression
+
+# 5 Interpolating with regression
 
 In this section we’re going to build a regression model to predict ozone as a function of a set of independent variables or ‘features’. Let’s explore these.
 
