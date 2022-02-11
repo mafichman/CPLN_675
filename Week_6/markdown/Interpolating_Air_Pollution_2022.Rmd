@@ -40,6 +40,8 @@ The `ozoneHigh` field is the highest measure of ozone sampled for 2016 at a give
 
 Grid cells denoted by `training == 1` are those areas where EPA maintains an ozone air quality sensor. The purpose of this first exercise is to predict ozone for all the locations where there are no sensors.
 
+THIS IS A FISHNET WHAT IS A FISHNET AND HOW DO YOU MAKE IT
+
 **Questions:**
 
 What do you think should be our predictive strategy? 
@@ -52,7 +54,9 @@ The Arc module consists of the following steps:
 
 - In ArcGIS - map ozoneHigh and some of the other other features in the data
 
-- Perform IDW and convert the raster to vector via Zonal Statistics as Table. create an IDW_pred in the Mid_Atlantic_EPA_Dataset.
+- Perform IDW and convert the raster to vector via Zonal Statistics as Table. 
+
+- create an IDW_pred in the Mid_Atlantic_EPA_Dataset.
 
 - Go feature to point to create centroids, perform kriging and convert the raster to vector via Zonal Statistics as Table. Create an krige_pred in the Mid_Atlantic_EPA_Dataset.
 
@@ -62,7 +66,7 @@ Now that we’ve seen some more traditional interpolation techniques, let’s se
 
 We’re going to begin with some instructions on how to create the spatial lag variable in ArcGIS. This is the variable that will allow us to model the spatial autocorrelation. It is defined as the average ozoneHigh of any locations k nearest training neighbors.
 
-- Create a new shapefile of just the training grid cells, called training.
+- Create a new shapefile of just the training grid cells, called `training`.
 
 - Using the ‘Near Table’ tool, set the Mid-Atlantic dataset as the Input Features and usetraining as the Near Features
 
@@ -120,7 +124,8 @@ You can read in data in one of the following ways:
 1. Put your output from the ArcGIS exercise above into the below code block:
 
 ```{r read_file, eval=FALSE}
-epa <- st_read("myfilepath/myfile.shp")
+epa <- st_read("myfilepath/myfile.shp") %>%
+  st_transform(crs = 4326)
 ```
 
 
@@ -134,7 +139,8 @@ epa <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_6
 
 ## 4.2 Build some plots
 
-Let’s build some plots using ggplot. We begin with a map of ozone. How would you modify the below code block to get just the grid cells where trainin = 1? More info on colors here.
+Let’s build some plots using ggplot. We begin with a map of ozone. How would you modify the below code block to get just the grid cells where `training = 1`? More info on colors here.
+
 ```{r}
 ggplot() +
   geom_sf(data=epa , aes(fill=ozoneHigh)) + 
@@ -159,11 +165,11 @@ ggplot() +
 
 In this section we’re going to build a regression model to predict ozone as a function of a set of independent variables or ‘features’. Let’s explore these.
 
-The first code block is a bit tricky. Feel free to run it line by line to get a better sense of how it works. `st_centroid` and `st_coordinates` together create a data frame of X and Y coordinates. This two columned data frame is the column bound or `cbind` to the orginal `epa` layer including a subset of variables.
+The first code block is a bit tricky. Feel free to run it line by line to get a better sense of how it works. `st_centroid` and `st_coordinates` together create a data frame of X and Y coordinates. This two columned data frame is the column bound or `cbind` to the original `epa` layer including a subset of variables.
 
 Pull out just the variables we want for this analysis. Then create two more quintile maps like the ones below and grid.arrange them into one data visualization. Include a title.
 
-```{r}
+```{r cbind_epa2}
 epa2 <-
   epa %>% 
   st_centroid() %>% st_coordinates() %>%
@@ -308,4 +314,7 @@ ggplot() +
   labs(title="Predicted ozone") +
   mapTheme
 ```
+
+# Appendix - Creating The Fishnet in R and ArcGIS
+
 
