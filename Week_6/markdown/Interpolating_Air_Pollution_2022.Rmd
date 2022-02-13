@@ -239,7 +239,9 @@ summary(reg)
 
 Let's estimate a new model, this time with x and y included as predictors. 
 
-What do you notice. Why?
+What do you notice? 
+
+Why?
 
 
 ```{r}
@@ -249,16 +251,21 @@ reg2 <- lm(ozoneHigh ~ ., data=training %>%
 summary(reg2)
 ```
 
-2.2 Build a regression - Add the spatial lag
+# 5.3 Add the spatial lag
 
-What is a spatial lag? Why might that help us predict better?
+What is a spatial lag? 
+
+What do you think about this correlation?
+
+
 ```{r}
 ggplot(training, aes(Ave_ozoneH, ozoneHigh)) +
  geom_point() +
  geom_smooth(method="lm",se=F) +
  labs(title="Ozone as a function of the spatial lag of ozone")
 ```
-Let’s include it in the regression
+Let’s include spatial lag in the regression
+
 ```{r}
 reg.lag <- lm(ozoneHigh ~ ., data=training %>% 
                                    as.data.frame() %>%
@@ -267,11 +274,15 @@ summary(reg.lag)
 ```
 
 What happened to all the variables? Why?
-2.3 Goodness of fit
 
-R^2 is the go to goodness of fit indicator. Why? What is its interpretation?
 
-When we do predictive modeling however, R^2 can be misleading. A better way to think about error, when possible, is simply the differenec between the observed value and the predicted value.
+## 5.4 Asessing goodness of fit
+
+R^2 is often the "go to" indicator of goodness of fit. Why? 
+
+How do we interpret the R^2 statistic?
+
+When we do predictive modeling however, R^2 can be misleading. A better way to think about error, when possible, is simply the difference between the observed value and the predicted value.
 
 Let’s check out our predictions. First we create three new prediction fields and convert to long form - the format we need to create small multiple plots.
 
@@ -287,8 +298,11 @@ training.summary <-
 training.summary
 ```
 
-Next, create three plots of predictions for observed. Which model looks most accurate?
-```{r}
+Next, create three plots of predictions for observed. 
+
+Which model looks most accurate?
+
+```{r plot_training, message = FALSE, warning= FALSE}
 ggplot(data = training.summary, aes(Value, ozoneHigh)) + 
   geom_point() + geom_smooth(method = "lm", se = FALSE) +
   facet_wrap(~Variable, scales = "free")
@@ -302,7 +316,10 @@ st_drop_geometry(training.summary) %>%
   group_by(Variable) %>%
   summarize(MeanAbsoluteError = mean(absError))
 ```
-Finally, let’s predict for the entire dataset which is our interpolated output.
+Finally, let’s predict for the entire dataset.
+
+This set of predictions is our interpolated output.
+
 ```{r}
 epa2 <- mutate(epa2, reg.lag.pred = predict(reg.lag, epa2))
 
@@ -312,10 +329,15 @@ ggplot() +
   labs(title="Predicted ozone") +
   mapTheme
 ```
-Let’s visualize the prediction with the areas where we have air sensors (ie. training == 1). What can you conclude about the statistical reliability of our predictions given this map?
+Let’s visualize the prediction with the areas where we have air sensors (ie. training == 1). 
+
+We use the `predict` function to predict values for `epa2` using our model `reg.lag` and the independent variables in the `epa2` data set.
+
+What can you conclude about the statistical reliability of our predictions given this map?
 
 ```{r}
-epa2 <- mutate(epa2, reg.lag.pred = predict(reg.lag, epa2))
+epa2 <- epa2 %>% 
+  mutate(reg.lag.pred = predict(reg.lag, epa2))
 
 ggplot() +
   geom_sf(data=epa2, aes(fill = reg.lag.pred)) + 
