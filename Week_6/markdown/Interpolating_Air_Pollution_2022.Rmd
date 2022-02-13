@@ -197,7 +197,7 @@ grid.arrange(hwyPlot,developPlot, ncol=1)
 ```
 
 
-2.1 Build a regression - setup
+## 5.1 Setup
 
 The goal is to predict ozoneHigh for every grid cell in our study area. However, we only have ozone data for a subset where training=1. Thus, the strategy is going to be to create a training set that we can use to train our model. When that model is robust, we will use it to predict for the entire dataset.
 
@@ -218,11 +218,17 @@ training %>%
       geom_smooth(method = "lm", se=FALSE) +
       facet_wrap(~Variable, scales="free", ncol=5)
 ```
-2.2 Build a regression - first regression
+## 5.2 Creating Models
 
-Let’s estimate the ‘kitchen sink’ regression with all of our variables but the spatial variables. Note the embeded use of ’dplyrin thelm` command.
+Let’s estimate the ‘kitchen sink’ regression with all of our variables **except** the spatial variables. Note the embedded use of `select` in the `lm` command where we remove the variables we don't want.
 
-Describe the summary and its goodness of fit.
+We take `training` and turn it from an `sf` to a data frame (to please the `lm` command, which wants a data frame), and we `select` to remove the variables we don't want.
+
+Describe the summary and its goodness of fit - what are the significant variables? What are their coefficients and what does that mean? What is the r-squared value?
+
+Overall, what do we make of this model?
+
+
 ```{r}
 reg <- lm(ozoneHigh ~ ., data=training %>% 
                                    as.data.frame() %>%
@@ -231,7 +237,11 @@ summary(reg)
 
 ```
 
-Estimate it again with x and y. What do you notice. Why?
+Let's estimate a new model, this time with x and y included as predictors. 
+
+What do you notice. Why?
+
+
 ```{r}
 reg2 <- lm(ozoneHigh ~ ., data=training %>% 
                                    as.data.frame() %>%
