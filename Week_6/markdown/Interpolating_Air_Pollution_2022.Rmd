@@ -30,7 +30,7 @@ The second part of the module involves running a regression model in R to estima
 
 - Use the "fishnet" as a vector alternative to raster GIS.
 
-- Introduction to geospatial predictive modeling
+- Introduction to geospatial predictive modeling: run some linear models and see how they work mechanically.
 
 # 2. Data
 
@@ -40,25 +40,31 @@ The `ozoneHigh` field is the highest measure of ozone sampled for 2016 at a give
 
 Grid cells denoted by `training == 1` are those areas where EPA maintains an ozone air quality sensor. The purpose of this first exercise is to predict ozone for all the locations where there are no sensors.
 
-THIS IS A FISHNET WHAT IS A FISHNET AND HOW DO YOU MAKE IT
-
 **Questions:**
 
 What do you think should be our predictive strategy? 
 
 Why is the spatial component so important here?
 
+## 2.1. The Fishnet
+
+These grid cells are a "fishnet" (which is an ESRI term) and we use them to approximate a raster approach to GIS while still having access to the tabular data that we like from vector GIS.
+
+To create a fishnet in ArcGIS, there's a handy tool called "Create Fishnet" where you input a study area and specify a cell size. To create a fishnet in R (a skill you might want to apply on your midterm), consult the Appendix at the end of this markdown.
+
 # 3. Interpolation in ArcGIS
 
 The Arc module consists of the following steps:
 
-- In ArcGIS - map ozoneHigh and some of the other other features in the data
+- In ArcGIS - map `ozoneHigh` and some of the other other features in the data
 
-- Perform IDW and convert the raster to vector via Zonal Statistics as Table. 
+- Create spatial lag of `ozoneHigh` in ArcGIS. 
 
-- create an IDW_pred in the Mid_Atlantic_EPA_Dataset.
+- Create an IDW prediction in the `Mid_Atlantic_EPA_Dataset`.
 
-- Go feature to point to create centroids, perform kriging and convert the raster to vector via Zonal Statistics as Table. Create an krige_pred in the Mid_Atlantic_EPA_Dataset.
+- Create a Kriging prediction in the `Mid_Atlantic_EPA_Dataset`.
+
+Start by visualizing `ozoneHigh` and seeing the spatial contours of the data.
 
 ## 3.1 Calculate a spatial lag in ArcGIS
 
@@ -66,27 +72,53 @@ Now that we’ve seen some more traditional interpolation techniques, let’s se
 
 We’re going to begin with some instructions on how to create the spatial lag variable in ArcGIS. This is the variable that will allow us to model the spatial autocorrelation. It is defined as the average ozoneHigh of any locations k nearest training neighbors.
 
-- Create a new shapefile of just the training grid cells, called `training`.
+1. Create a new shapefile of just the training grid cells, called `training`.
 
-- Using the ‘Near Table’ tool, set the Mid-Atlantic dataset as the Input Features and usetraining as the Near Features
+2. We are going to measure nearest neighbor distance from our fishnet cells to the training set. Using the ‘Near Table’ tool, set the `Mid_Atlantic_EPA_Dataset` as the Input Features (make sure you have unselected any features you might have selected in the last step!) and use `training` as the Near Features. 
 
-- To specify how many nearest neighbors to measure distance to, uncheck ‘Find only closest feature’ and set ‘Maximum number of closest features to 3’. Call this new table nearTraining.
+3. To specify how many nearest neighbors to measure distance to, uncheck ‘Find only closest feature’ and set ‘Maximum number of closest features to 3’. Call this new table `nearTraining`.
 
-- Note that the new table has the distance from each IN_FID from the Mid-Atlantic shapefile to its nearest NEAR_FID from the training shapefile. Note there are three entries for each IN_FID because we chose 3 nearest neighbors.
+4. Note that the new table has the distance from each `IN_FID` from the Mid-Atlantic shapefile to its nearest `NEAR_FID` from the training shapefile. Note there are three entries for each `IN_FID` because we chose 3 nearest neighbors.
 
-- We’re not interested in the distances per se - we want to get the average high ozone observation for each grid cell. To do so we
+- We’re not interested in the distances per se - we want to get the average high ozone observation for each of the three nearest grid cells. We join the original `training` shapefile to the `nearTraining` using `NEAR_FID` from the latter to join to `OBJECTID` from the former. Call this new table `nearTraining2`. Now we know the `ozoneHigh` of each training grid cell where there’s an air quality sensor.
 
-- Join the original training shapefile to the Near Table using NEAR_FID from the latter to join to FID from the former. Call this new table nearTraining2. Now we know the ozoneHigh of each training grid cell where there’s an air quality sensor.
+5. Export this joined table to its own `.dbf` file or geodatabase table as `nearTraining2`.
 
-- Next export nearTraining2 to its own dbf file.
+6. We’re going to calculate the average `ozoneHigh` of each cell’s 3 nearest training neighbors. Add `nearTraining2` to your viewer; open the attribute table; right click on IN_FID and click `summarize`. Drop down the `ozoneHigh` field and make the statistic type `MEAN`. Name this table `nearTraining3` and run the tool.
 
-- Now we’re going to calculate the average ozoneHigh of each cell’s 3 nearest training neighbors. Add nearTraining2 to ArcMap; open the attribute table; right click on IN_FID and click ‘summarize’. Drop down the ozoneHigh field and click average. Name this table nearTraining3 and then OK to run the tool.
+7. Note that `nearTraining3` has 1,025 rows (one for each cell in the original Mid-Atlantic shapefile) and an average `ozoneHigh` calculation. If you have the wrong number of cells
 
-- Note the new table has 1,025 rows (one for each cell in the original Mid-Atlantic shapefile) and an average ozoneHigh calculation.
+8. Join `nearTraining3` to the original Mid-Atlantic shapefile and map the `average_OzoneHigh`.
 
-- Lastly join this to the original Mid-Atlantic shapefile and map the average_OzoneHigh.
+9. Export this shapefile as `Mid_Atlantic_EPA_Dataset_withLag` Move this shapefile into R. If you can't complete this routine, you can catch up by using a similarly named data set found in the course github (the link to this data set, as a geojson, is below.)
 
-- Export this shapefile as `Mid_Atlantic_EPA_Dataset_withLag` Move this shapefile into R. If you can't complete this routine, you can catch up by using a similarly named data set found in the course github (the link to this data set, as a geojson, is below.)
+
+## 3.2. IDW in ArcGIS
+
+**Note - We are going to perform IDW and Kriging and visually compare these between platforms, ArcGIS and R. If you want, you can also follow the instructions denoted as OPTIONAL below, where you can join IDW and Kriging results to our Mid_Atlantic_EPA_Dataset_withLag and bring them into R for comparison.**
+
+10. Use the `IDW` tool to create surface of estimated Ozone. Select `training` as your input features, and the `ozoneHigh` as the "Z-Value" field. Choose a raster cell size and extent that "make sense" for this analysis - it's your call as to what that is. You don't need to select a "Geostatistical Layer." Call this output `idw_1`
+
+OPTIONAL STEPS:
+
+11. Use `Zonal Statistics as Table` to summarize `idw_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `idw_zonal`.
+
+12. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`. If you like, rename the "MEAN" field as `idw_pred`.
+
+## 3.3. Kriging in ArcGIS
+
+13. Use the "Feature to Point" tool on `training` to get data for these sensors at point level. Call these points `kriging_centroid`.
+
+14. Use the 'kriging' tool to create a surface. Input features are `kriging_centroid`, Z-Value Field is `ozoneHigh`. Set the cell size to be the same as `idw_1`. Let's leave the default parameters alone - do we really know anything as a class about the decay functions for Ozone?  Let's call the output `krige_1`
+
+OPTIONAL STEPS:
+
+15. Use `Zonal Statistics as Table` to summarize `krige_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `krige_zonal`.
+
+16. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`. If you like, rename the "MEAN" field as `krige_pred`.
+
+17. Output the data set.
+
 
 # 4 Exploratory Analysis
 
@@ -251,7 +283,7 @@ reg2 <- lm(ozoneHigh ~ ., data=training %>%
 summary(reg2)
 ```
 
-# 5.3 Add the spatial lag
+## 5.3 Add the spatial lag
 
 What is a spatial lag? 
 
@@ -333,7 +365,11 @@ Let’s visualize the prediction with the areas where we have air sensors (ie. t
 
 We use the `predict` function to predict values for `epa2` using our model `reg.lag` and the independent variables in the `epa2` data set.
 
-What can you conclude about the statistical reliability of our predictions given this map?
+# 6. Questions
+
+What can you conclude about the statistical reliability of our predictions given this map? 
+
+Were you able to conduct the IDW and Kriging maneuvers in ArcGIS? If so, how do these compare? Create a sequence of maps to examine the differences!
 
 ```{r}
 epa2 <- epa2 %>% 
@@ -347,6 +383,43 @@ ggplot() +
   mapTheme
 ```
 
-# Appendix - Creating The Fishnet in R and ArcGIS
+# Appendix - Creating The Fishnet in R
+
+The `sf` package offers really easy way to create fishnet grids - `st_make_grid`.
+
+Let's load a spatial data file and make our very own. Remember our data from Chester County in Week 2? Let's load our Chester County municipalities file, then use `st_union` to go from a bunch of polygons to just one (e.g. the boundary).
+
+```{r load_chesco, warning = FALSE, message = FALSE}
+chesterBoundary <- read_sf("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/R_Data/Chester_MuniBoundaries.geojson") %>%
+  st_union()
+
+```
+
+Not sure what the projection is? It's important to know - the cellsize you set for your fishnet will be in the native units of the projection. Check `st_crs(chesterBoundary)` to find out, and `st_transform` to the projection you need if necessary.
+
+Here we are our CRS is 2272 (PA State Plane, linear unit = feet), so we're OK. We set the `cellsize = 10000` - 10,000 feet per cell.
+
+Examine the fishnet - the unique ID is crucial to building a data set!
+
+```{r make_fishnet}
+
+fishnet <- 
+  st_make_grid(chesterBoundary,
+               cellsize = 10000, 
+               square = TRUE) %>%
+  .[chesterBoundary] %>%            # clips the grid to the chesterBoundary file
+  st_sf() %>%
+  mutate(uniqueID = rownames(.))
+```
 
 
+Voila, now you have a fishnet you can use for your analysis. Let's take a quick look at it and add the `chesterBoundary` for some context.
+
+```{r plot_fishnet}
+
+ggplot()+
+  geom_sf(data = fishnet)+
+  geom_sf(data = chesterBoundary, 
+          color = "red", fill = "transparent")
+
+```
