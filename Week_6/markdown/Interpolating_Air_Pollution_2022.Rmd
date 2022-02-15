@@ -365,12 +365,6 @@ Let’s visualize the prediction with the areas where we have air sensors (ie. t
 
 We use the `predict` function to predict values for `epa2` using our model `reg.lag` and the independent variables in the `epa2` data set.
 
-# 6. Questions
-
-What can you conclude about the statistical reliability of our predictions given this map? 
-
-Were you able to conduct the IDW and Kriging maneuvers in ArcGIS? If so, how do these compare? Create a sequence of maps to examine the differences!
-
 ```{r}
 epa2 <- epa2 %>% 
   mutate(reg.lag.pred = predict(reg.lag, epa2))
@@ -383,7 +377,13 @@ ggplot() +
   mapTheme
 ```
 
-# Appendix - Creating The Fishnet in R
+# 6. Questions
+
+What can you conclude about the statistical reliability of our predictions given this map? 
+
+Were you able to conduct the IDW and Kriging maneuvers in ArcGIS? If so, how do these compare? Create a sequence of maps to examine the differences!
+
+# Appendix 1 - Creating The Fishnet in R
 
 The `sf` package offers really easy way to create fishnet grids - `st_make_grid`.
 
@@ -423,3 +423,12 @@ ggplot()+
           color = "red", fill = "transparent")
 
 ```
+
+# Appendix 2 - IDW and Kriging in R
+
+Can you do Kriging or IDW in R? Of course you can!
+
+Check out these resources to learn more:
+
+Kriging is [usually done using an older spatial package called `sp`](https://towardsdatascience.com/building-kriging-models-in-r-b94d7c9750d8) but [here it's performed starting with an `sf` object.](https://gis.stackexchange.com/questions/287988/kriging-example-with-sf-object)
+University of the Negev [has a bookdown](http://132.72.155.230:3838/r/spatial-interpolation-of-point-data.html) with spatial interpolation examples in R for both IDW and kriging.
