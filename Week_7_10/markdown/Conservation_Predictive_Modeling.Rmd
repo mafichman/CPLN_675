@@ -16,11 +16,19 @@ library(knitr)
 ```
 
 
-# 1. Setup
+# 1. Introduction
 
-Install these libraries and create a mapTheme()
+Recall our site suitability exercise in Week 1 - we used our own spatial decision factors, or "weights" to impose a rule-based system for identifying land areas. We are going to learn an alternative approach, where we use a statistical model to algorithmically determine the weights and subsequent siting.
 
-```{r}
+This is a relatively simplified exercise - there are some detailed ways to "tune" models to make them more powerful and flexible - to introduce you to logistic regression as a tool for classification. You will be able to use this general workflow in your midterm project, when you will create your own features for a similar model.
+
+# 2. Setup
+
+To get started, let's install libraries and a set of ggplot styles we call `mapTheme`.
+
+If you don't have particular libraries installed, run the command `install.packages('name_of_package_in_quotes')` with the relevant package, and then call them into your environment with a `library` command.
+
+```{r libraries, warning = FALSE, message = FALSE}
 library(caret)
 library(pscl)
 library(plotROC)
@@ -29,40 +37,44 @@ library(sf)
 library(tidyverse)
 library(knitr)
 library(kableExtra)
+library(tigris)
 ```
 
 
 ```{r mapTheme, echo=TRUE}
-mapTheme <- theme(
-    text = element_text( color = "black"),
-    plot.title = element_text(size = 14,colour = "black"),
-    plot.subtitle=element_text(face="italic"),
-    plot.caption=element_text(hjust=0),
-    axis.ticks = element_blank(),
-    panel.background = element_blank(),axis.title = element_blank(),
-    axis.text = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    panel.grid.minor = element_blank(),
-    panel.border = element_rect(colour = "black", fill=NA, size=2)
-  ) 
+mapTheme <- theme(plot.title =element_text(size=12),
+                  plot.subtitle = element_text(size=8),
+                  plot.caption = element_text(size = 6),
+                  axis.line=element_blank(),
+                  axis.text.x=element_blank(),
+                  axis.text.y=element_blank(),
+                  axis.ticks=element_blank(),
+                  axis.title.x=element_blank(),
+                  axis.title.y=element_blank(),
+                  panel.background=element_blank(),
+                  panel.border=element_blank(),
+                  panel.grid.major=element_line(colour = 'transparent'),
+                  panel.grid.minor=element_blank(),
+                  legend.direction = "vertical", 
+                  legend.position = "right",
+                  plot.margin = margin(1, 1, 1, 1, 'cm'),
+                  legend.key.height = unit(1, "cm"), legend.key.width = unit(0.2, "cm"))
 ```
 
-Let’s load our data. We are going to include two datasets: `preserve`, which is our fishnet dataset and `protected`, which is the original protected lands shapefile.
+Let’s load our data. We are going to include two datasets: `preserve`, which is a fishnet dataset representing preserved land, and `protected`, which is the original protected lands shapefile.
 
 ```{r load_data, warning = FALSE, message = FALSE}
 preserve <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/fishnet3k_pa_JoinDEM_Slope_distSlope_distUrban_landCover_distRivers.geojson")
 
 protected <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/pa_protected_lands2.geojson")
 ```
-
 We are going to load data in that are projected in WGS 84, which is the "web mercator" coordinate system, which is in units of decimal degrees (e.g. lat/lon). We want to re-project it to something with a linear unit in feet or meters so that we can do various distance measurements later on.
 
-Let's project it to PA State Plane, wich has a CRS (coordinate reference system) of 2272.
+Let's project it to PA State Plane, which has a CRS (coordinate reference system) of 2272.
 
-Check out spatialreference.org for the crs numbers of all the coordinate systems out there that you might want to use.
+Check out [spatialreference.org](spatialreference.org) for the crs numbers of all the coordinate systems out there that you might want to use.
 
-```{r}
+```{r transform}
 preserve <- preserve %>%
   st_transform(crs = 2272)
 
@@ -71,11 +83,33 @@ protected <- protected %>%
 
 ```
 
-We plot the protected lands.
+Let's also load a shape of PA counties from the US Census via the `tigris` package, make sure it's an sf object (`st_as_sf`) and reproject it to crs = 2272 like our other data (`st_transform`).
+
+```{r pa_shp, message= FALSE, warning = FALSE, echo = FALSE}
+counties <- counties('PA') %>%
+  st_as_sf() %>%
+  st_transform(crs = 2272)
+```
+
+# 3. Exploratory analysis
+
+Let’s start by checking out the variables we have in our datasets using the `glimpse` command.
+
+```{r glimpse1, eval=FALSE}
+glimpse(preserve)
+
+glimpse(protected)
+```
+
+Let's plot the shapefile of our protected lands on top of our counties. We give the shape some color and transparency.
 
 ```{r}
-ggplot() + 
-  geom_sf(data=protected) +
+ggplot() +
+  geom_sf(data = counties)+
+  geom_sf(data=protected, 
+          fill = "dark green", 
+          color = "dark green",
+          alpha = 0.6) +
   labs(title="Protected lands in Pennsylvania") +
   mapTheme
 ```
@@ -93,9 +127,11 @@ ggplot() +
 ```
 
 
-That figure above takes a long time to plot. Although we are dealing with a fishnet, let’s try to plot as points using `geom_point` instead of `geom_sf`. Note that there are centroid fields, x and Y in the data (note accidentally one is capitalized). These get input into the aes call below. size is outside of aes as it gets a generic parameter, not one from the data frame.
+That figure above takes a long time to plot - a lot of vector drawing!
 
-In addition, because we are no longer using fill, we use scale_colour_manual to create a colour gradient.
+Although we are dealing with a fishnet, for speed's sake, let’s try to plot as points using `geom_point` instead of `geom_sf`. Note that there are centroid fields, `x` and `Y` in the data (note accidentally one is capitalized). These get input into the aes call below. size is outside of aes as it gets a generic parameter, not one from the data frame.
+
+In addition, because we are no longer using fill, we use `scale_colour_manual` to create a color gradient.
 
 ```{r}
 ggplot() + 
@@ -106,13 +142,6 @@ ggplot() +
   labs(title="Protected lands in Pennsylvania (Points") +
   mapTheme
 ```
-
-Let’s check out the variables we have in our dataset using the `glimpse` command.
-
-```{r}
-glimpse(preserve)
-```
-
 
 Let’s build some bar plots that show differences in our independent variables across land that has and has not been preserved. What is gather doing below?
 
