@@ -101,6 +101,8 @@ glimpse(preserve)
 glimpse(protected)
 ```
 
+## 3.1. Maps
+
 Let's plot the shapefile of our protected lands on top of our counties. We give the shape some color and transparency.
 
 ```{r}
@@ -114,12 +116,15 @@ ggplot() +
   mapTheme
 ```
 
-Now let’s plot the fishnet version.
+Now let’s plot the fishnet version. 
 
-```{r}
+Notice we set the `fill` of our `geom_sf` to `as.factor(preserve)` and set the color to "transparent" outside the aesthetics. What does this do?
+
+```{r plot_fishnet}
 ggplot() + 
-  geom_sf(data=preserve, aes(fill=as.factor(preserve))) +
-  scale_fill_manual(values = c("dodgerblue4", "darkgreen"),
+  geom_sf(data=preserve, aes(fill=as.factor(preserve)), color = "transparent") +
+  geom_sf(data = counties, fill = "transparent", color = "white")+
+  scale_fill_manual(values = c("dark blue", "dark green"),
                     labels = c("Not Preserved","Preserved"),
                     name = "") +
   labs(title="Protected lands in Pennsylvania (Fishnet)") +
@@ -133,37 +138,56 @@ Although we are dealing with a fishnet, for speed's sake, let’s try to plot as
 
 In addition, because we are no longer using fill, we use `scale_colour_manual` to create a color gradient.
 
-```{r}
+```{r map_points}
 ggplot() + 
-  geom_point(data=preserve, aes(x,Y,colour=as.factor(preserve)), size=2) +
-  scale_colour_manual(values = c("dodgerblue4", "darkgreen"),
+  geom_point(data=preserve, aes(x, Y, colour=as.factor(preserve)), size=2) +
+  scale_colour_manual(values = c("dark blue", "dark green"),
                     labels = c("Not Preserved","Preserved"),
                     name = "") +
-  labs(title="Protected lands in Pennsylvania (Points") +
+  labs(title="Protected lands in Pennsylvania (Points)",
+       subtitle ="This plots much faster!") +
   mapTheme
 ```
 
-Let’s build some bar plots that show differences in our independent variables across land that has and has not been preserved. What is gather doing below?
+## 3.2. Plots
 
-```{r}
+Let’s build some bar plots that show differences in our independent variables across land that has and has not been preserved. 
+
+Notice the use of the `gather` function. What is it doing? Use `glimpse` to examine the data.
+
+```{r wide_2_long}
 preservePlotVariables <- 
   preserve %>%
   as.data.frame() %>%
   select(preserve,elevation,slope,dSteepSlop,dUrban,distRivers) %>%
-  gather(key, value, elevation:distRivers)
+  gather(key, value, -preserve)
 ```
+
+*Note* there is a more modern version of `gather` known as `pivot_longer`, where the syntax would look like this:
+
+```{r pivot_longer, echo=FALSE}
+preserve %>% as.data.frame() %>%
+    select(preserve,elevation,slope,dSteepSlop,dUrban,distRivers) %>% 
+    pivot_longer(cols = -preserve)
+```
+
+
+![Pivoting between wide and long data](~/Github/CPLN_675/Week_7_10/images/tidyr-spread-gather.gif)
+Image: https://www.garrickadenbuie.com/
+
+PLOT LIKE THIS: preservePlotVariables %>% group_by(preserve, key) %>% summarize(mean = mean(value))
+
+Let's examine some of the variables and how they vary across our preserved/not preserved variable.
 
 ```{r}
 ggplot(preservePlotVariables, aes(as.factor(preserve), value, fill=as.factor(preserve))) + 
-     geom_bar(stat="identity") + 
+     geom_bar(aes(mean), stat="identity") + 
      facet_wrap(~key) +
-     scale_fill_manual(values = c("dodgerblue4", "darkgreen"),
+     scale_fill_manual(values = c("dark blue", "dark green"),
                       labels = c("Not Preserved","Preserved"),
                       name = "") +
     labs(x="Preserved", y="Value")
 ```
-
-
 Let’s plot again, but this time we have to scale `slope` so that the differences, if any, are apparent.
 
 ```{r}

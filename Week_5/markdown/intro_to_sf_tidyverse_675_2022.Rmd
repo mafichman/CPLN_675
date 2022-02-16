@@ -415,7 +415,7 @@ Let's go to WPC's open data site and download a csv of toxic release points in A
 
 If you can't find it there, it's available at my github:
 
-[https://raw.githubusercontent.com/mafichman/CPLN_675_wk5/main/data/toxic.csv](https://raw.githubusercontent.com/mafichman/CPLN_675_wk5/main/data/toxic.csv)
+[https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_5/data/toxic.csv](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_5/data/toxic.csv)
 
 Then, read it in using either a line of code leading to the filepath (as below) or using the Import command in the "File" dropdown in R Studio
 
