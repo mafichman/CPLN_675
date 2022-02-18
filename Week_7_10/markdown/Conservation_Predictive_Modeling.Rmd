@@ -160,7 +160,7 @@ preservePlotVariables <-
   preserve %>%
   as.data.frame() %>%
   select(preserve,elevation,slope,dSteepSlop,dUrban,distRivers) %>%
-  gather(key, value, -preserve)
+  gather(variable, value, -preserve)
 ```
 
 *Note* there is a more modern version of `gather` known as `pivot_longer`, where the syntax would look like this:
@@ -175,53 +175,47 @@ preserve %>% as.data.frame() %>%
 ![Pivoting between wide and long data](~/Github/CPLN_675/Week_7_10/images/tidyr-spread-gather.gif)
 Image: https://www.garrickadenbuie.com/
 
-PLOT LIKE THIS: preservePlotVariables %>% group_by(preserve, key) %>% summarize(mean = mean(value))
+Let's examine some of the variables and how they vary across our preserved/not preserved variable. Our `preservePlotVariables` data frame has rows for each cell-variable pair, we `group_by` variable and preservation status and take the mean value for each variable by status.
 
-Let's examine some of the variables and how they vary across our preserved/not preserved variable.
-
-```{r}
-ggplot(preservePlotVariables, aes(as.factor(preserve), value, fill=as.factor(preserve))) + 
-     geom_bar(aes(mean), stat="identity") + 
+```{r eda_by_status}
+ggplot(preservePlotVariables %>%
+         group_by(preserve, variable) %>%
+         summarize(mean = mean(value))) + 
+     geom_bar(aes(as.factor(preserve), 
+                  mean, 
+                  fill=as.factor(preserve)),
+              stat="identity") + 
      facet_wrap(~key) +
      scale_fill_manual(values = c("dark blue", "dark green"),
                       labels = c("Not Preserved","Preserved"),
                       name = "") +
     labs(x="Preserved", y="Value")
 ```
-Let’s plot again, but this time we have to scale `slope` so that the differences, if any, are apparent.
 
-```{r}
-preservePlotVariables <- 
-  preservePlotVariables %>%
-  mutate(value = ifelse(key == "slope", value*100, value))
+*Question:*
 
-ggplot(preservePlotVariables, aes(as.factor(preserve), value, fill=as.factor(preserve))) + 
-  geom_bar(stat="identity") + 
-  facet_wrap(~key) +
-  scale_fill_manual(values = c("dodgerblue4", "darkgreen"),
-                    labels = c("Not Preserved","Preserved"),
-                    name = "") +
-  labs(x="Preserved", y="Value")
-```
+**Can you calculate how many fishnet grid cells are preserved?  What is it on a percentage basis?**
 
+# 4. Data wrangling
 
-*How many fishnet grid cells are preserved? What is it on a percentage basis?*
-
-# Data wrangling
-
-Lets build another dataset of just the variables we want to analyze. Notice that land cover is an integer but we want it to be a factor, so it gets recoded.
+Lets build another data set of just the variables we want to analyze. Notice that land cover is an integer but we want it to be a factor, so it gets recoded.
 
 ```{r}
 preserve <- 
   preserve %>%
-  select(preserve,elevation,slope,dSteepSlop,landCover,dUrban,distRivers) 
-
-preserve$landCover <- as.factor(preserve$landCover)
+  select(preserve,elevation,slope,dSteepSlop,landCover,dUrban,distRivers) %>%
+  mutate(landCover = as.factor(landCover))
 ```
 
 # Model building
 
-Now we create training and test sets. Why do you think `preserve$landCover` is specified below?
+Now we create training and test sets. 
+
+Let's look over this operation:
+
+- `set.seed` generates a random number
+
+- `createDataPartition` randomly separates our data into two sets. Why do you think `preserve$landCover` is specified below?
 
 Why is it important to have separate training and test sets?
 
@@ -230,6 +224,7 @@ set.seed(3456)
 trainIndex <- createDataPartition(preserve$landCover, p = .70,
                                   list = FALSE,
                                   times = 1)
+
 preserveTrain <- preserve[ trainIndex,]
 preserveTest  <- preserve[-trainIndex,]
 ```
