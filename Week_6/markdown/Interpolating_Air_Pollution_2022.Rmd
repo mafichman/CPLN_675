@@ -74,13 +74,13 @@ We’re going to begin with some instructions on how to create the spatial lag v
 
 1. Create a new shapefile of just the training grid cells, called `training`.
 
-2. We are going to measure nearest neighbor distance from our fishnet cells to the training set. Using the ‘Near Table’ tool, set the `Mid_Atlantic_EPA_Dataset` as the Input Features (make sure you have unselected any features you might have selected in the last step!) and use `training` as the Near Features. 
+2. We are going to measure nearest neighbor distance from our fishnet cells to the training set. Using the ‘Generate Near Table’ tool, set the `Mid_Atlantic_EPA_Dataset` as the Input Features (make sure you have unselected any features you might have selected in the last step!) and use `training` as the Near Features. 
 
 3. To specify how many nearest neighbors to measure distance to, uncheck ‘Find only closest feature’ and set ‘Maximum number of closest features to 3’. Call this new table `nearTraining`.
 
 4. Note that the new table has the distance from each `IN_FID` from the Mid-Atlantic shapefile to its nearest `NEAR_FID` from the training shapefile. Note there are three entries for each `IN_FID` because we chose 3 nearest neighbors.
 
-- We’re not interested in the distances per se - we want to get the average high ozone observation for each of the three nearest grid cells. We join the original `training` shapefile to the `nearTraining` using `NEAR_FID` from the latter to join to `OBJECTID` from the former. Call this new table `nearTraining2`. Now we know the `ozoneHigh` of each training grid cell where there’s an air quality sensor.
+- We’re not interested in the distances per se - we want to get the average high ozone observation for each of the three nearest grid cells. We join the original `training` shapefile to the `nearTraining` using `NEAR_FID` from the latter to join to `OBJECTID` from the former (this might also be called FID, depending on your version of ArcGIS). Call this new table `nearTraining2`. Now we know the `ozoneHigh` of each training grid cell where there’s an air quality sensor.
 
 5. Export this joined table to its own `.dbf` file or geodatabase table as `nearTraining2`.
 
@@ -90,20 +90,15 @@ We’re going to begin with some instructions on how to create the spatial lag v
 
 8. Join `nearTraining3` to the original Mid-Atlantic shapefile and map the `average_OzoneHigh`.
 
-9. Export this shapefile as `Mid_Atlantic_EPA_Dataset_withLag` Move this shapefile into R. If you can't complete this routine, you can catch up by using a similarly named data set found in the course github (the link to this data set, as a geojson, is below.)
-
+9. Export this shapefile as `Mid_Atlantic_EPA_Dataset_withLag` Move this shapefile into R (see section 4.1 of this Markdown). If you can't complete this routine, you can catch up by using a similarly named data set found in the course github (the link to this data set, as a geojson, is below.)
 
 ## 3.2. IDW in ArcGIS
 
-**Note - We are going to perform IDW and Kriging and visually compare these between platforms, ArcGIS and R. If you want, you can also follow the instructions denoted as OPTIONAL below, where you can join IDW and Kriging results to our Mid_Atlantic_EPA_Dataset_withLag and bring them into R for comparison.**
-
 10. Use the `IDW` tool to create surface of estimated Ozone. Select `training` as your input features, and the `ozoneHigh` as the "Z-Value" field. Choose a raster cell size and extent that "make sense" for this analysis - it's your call as to what that is. You don't need to select a "Geostatistical Layer." Call this output `idw_1`
-
-OPTIONAL STEPS:
 
 11. Use `Zonal Statistics as Table` to summarize `idw_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `idw_zonal`.
 
-12. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`. If you like, rename the "MEAN" field as `idw_pred`.
+12. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`. Rename the "MEAN" field as `idw_pred`.
 
 ## 3.3. Kriging in ArcGIS
 
@@ -111,13 +106,11 @@ OPTIONAL STEPS:
 
 14. Use the 'kriging' tool to create a surface. Input features are `kriging_centroid`, Z-Value Field is `ozoneHigh`. Set the cell size to be the same as `idw_1`. Let's leave the default parameters alone - do we really know anything as a class about the decay functions for Ozone?  Let's call the output `krige_1`
 
-OPTIONAL STEPS:
-
 15. Use `Zonal Statistics as Table` to summarize `krige_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `krige_zonal`.
 
-16. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`. If you like, rename the "MEAN" field as `krige_pred`.
+16. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`. Rename the "MEAN" field as `krige_pred`.
 
-17. Output the data set.
+17. Output the data set as `Mid_Atlantic_EPA_Dataset_Lag_IDW_Kr`.
 
 
 # 4 Exploratory Analysis
@@ -195,23 +188,32 @@ ggplot() +
 
 # 5 Interpolating with regression
 
-In this section we’re going to build a regression model to predict ozone as a function of a set of independent variables or ‘features’. Let’s explore these.
+In this section we’re going to build a regression model to predict ozone as a function of a set of independent variables or ‘features’. We start with a bit of data cleaning and exploration.
 
-The first code block is a bit tricky. Feel free to run it line by line to get a better sense of how it works. `st_centroid` and `st_coordinates` together create a data frame of X and Y coordinates. This two columned data frame is the column bound or `cbind` to the original `epa` layer including a subset of variables.
+The first code block is a bit tricky. Feel free to run it line by line to get a better sense of how it works. 
 
-Pull out just the variables we want for this analysis. Then create two more quintile maps like the ones below and grid.arrange them into one data visualization. Include a title.
+-`cbind` takes data frames of equal row length and combines them. Inside the `cbind` we have the following operations, separated by a comma:
 
-```{r cbind_epa2}
+- We pipe the `st_centroid` and `st_coordinates` commands to `epa` to create a data frame of X and Y coordinates to get some add reliable coordinates for our data.
+
+- From the original `epa` layer we pull out just the variables we want for this analysis using `select`. Examine what we keep - some variables associated with the landscape and land use, and our Ozone lag `Ave_ozoneH`.
+
+```{r cbind_epa2, warning = FALSE, message = FALSE}
 epa2 <-
-  epa %>% 
-  st_centroid() %>% st_coordinates() %>%
-  cbind(
+  cbind(epa %>% 
+  st_centroid() %>% st_coordinates(),
     epa %>% 
     dplyr::select(HwyDensity,distWater,sumDevelop,sumForest,
            distI95,Population,distCities,training,
            ozoneHigh,Ave_ozoneH))
 ```
+
+
+Let's create two more quintile maps like the ones below and grid.arrange them into one data visualization. Include a title.
+
 Let’s then map two of these features using grid.arrange to splice them together.
+
+
 ```{r}
 hwyPlot <- 
   ggplot() +
@@ -382,6 +384,18 @@ ggplot() +
 What can you conclude about the statistical reliability of our predictions given this map? 
 
 Were you able to conduct the IDW and Kriging maneuvers in ArcGIS? If so, how do these compare? Create a sequence of maps to examine the differences!
+
+## 6.1. Bonus section - comparing methods
+
+Take your data set `Mid_Atlantic_EPA_Dataset_Lag_IDW_Kr` - the one with the IDW and Kriging predictions, and load it into R by modifying the following code:
+
+```{r bonus_upload, eval=FALSE, message=FALSE, warning=FALSE}
+lag_krige_idw <- st_read("myfilepath/myfile.shp") %>%
+  st_transform(crs = 4326)
+```
+
+Can you join `lag_krige_idw` to `epa2` and examine differences between `reg.lag.pred` (our regression-generated predictions) and the IDW and kriging estimates? Do this either visually or through summary.
+
 
 # Appendix 1 - Creating The Fishnet in R
 
