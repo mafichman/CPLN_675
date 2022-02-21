@@ -96,9 +96,9 @@ We’re going to begin with some instructions on how to create the spatial lag v
 
 10. Use the `IDW` tool to create surface of estimated Ozone. Select `training` as your input features, and the `ozoneHigh` as the "Z-Value" field. Choose a raster cell size and extent that "make sense" for this analysis - it's your call as to what that is. You don't need to select a "Geostatistical Layer." Call this output `idw_1`
 
-11. Use `Zonal Statistics as Table` to summarize `idw_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `idw_zonal`.
+11. Use `Zonal Statistics as Table` to summarize `idw_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `idw_zonal`. Open an edit session - go into the table and rename the field `MEAN` as `idw_pred`.
 
-12. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`. Rename the "MEAN" field as `idw_pred`.
+12. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`.
 
 ## 3.3. Kriging in ArcGIS
 
@@ -106,9 +106,9 @@ We’re going to begin with some instructions on how to create the spatial lag v
 
 14. Use the 'kriging' tool to create a surface. Input features are `kriging_centroid`, Z-Value Field is `ozoneHigh`. Set the cell size to be the same as `idw_1`. Let's leave the default parameters alone - do we really know anything as a class about the decay functions for Ozone?  Let's call the output `krige_1`
 
-15. Use `Zonal Statistics as Table` to summarize `krige_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `krige_zonal`.
+15. Use `Zonal Statistics as Table` to summarize `krige_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `krige_zonal`. Open an edit session - go into the table and rename the field `MEAN` as `krige_pred`.
 
-16. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`. Rename the "MEAN" field as `krige_pred`.
+16. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`.
 
 17. Output the data set as `Mid_Atlantic_EPA_Dataset_Lag_IDW_Kr`.
 
