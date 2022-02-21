@@ -1,11 +1,12 @@
 ---
 title: "CPLN 675: Interpolating Air Pollution Dynamics with Interpolation and Regression"
 author: "Ken Steif & Michael Fichman"
-date: "1/14/2022"
-output: 
+date: "2/21/2022"
+output:
   html_document:
     toc: true
     toc_float: true
+    code_folding: hide
     code_download: true
 ---
 
@@ -96,9 +97,9 @@ We’re going to begin with some instructions on how to create the spatial lag v
 
 10. Use the `IDW` tool to create surface of estimated Ozone. Select `training` as your input features, and the `ozoneHigh` as the "Z-Value" field. Choose a raster cell size and extent that "make sense" for this analysis - it's your call as to what that is. You don't need to select a "Geostatistical Layer." Call this output `idw_1`
 
-11. Use `Zonal Statistics as Table` to summarize `idw_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `idw_zonal`. Open an edit session - go into the table and rename the field `MEAN` as `idw_pred`.
+11. Use `Zonal Statistics as Table` to summarize `idw_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `idw_zonal`.
 
-12. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`.
+12. Output this table as `idw_zonal.csv`.
 
 ## 3.3. Kriging in ArcGIS
 
@@ -106,11 +107,9 @@ We’re going to begin with some instructions on how to create the spatial lag v
 
 14. Use the 'kriging' tool to create a surface. Input features are `kriging_centroid`, Z-Value Field is `ozoneHigh`. Set the cell size to be the same as `idw_1`. Let's leave the default parameters alone - do we really know anything as a class about the decay functions for Ozone?  Let's call the output `krige_1`
 
-15. Use `Zonal Statistics as Table` to summarize `krige_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `krige_zonal`. Open an edit session - go into the table and rename the field `MEAN` as `krige_pred`.
+15. Use `Zonal Statistics as Table` to summarize `krige_1` by `Mid_Atlantic_EPA_Dataset` using the Zone Field `FID`. Choose statistics type "MEAN" and call the output `krige_zonal`.
 
-16. Join this table to `Mid_Atlantic_EPA_Dataset_withLag` by `FID`.
-
-17. Output the data set as `Mid_Atlantic_EPA_Dataset_Lag_IDW_Kr`.
+16. Output this table as `krige_zonal.csv`.
 
 
 # 4 Exploratory Analysis
@@ -387,15 +386,69 @@ Were you able to conduct the IDW and Kriging maneuvers in ArcGIS? If so, how do 
 
 ## 6.1. Bonus section - comparing methods
 
-Take your data set `Mid_Atlantic_EPA_Dataset_Lag_IDW_Kr` - the one with the IDW and Kriging predictions, and load it into R by modifying the following code:
+**If time allows, we will compare the outputs of our IDW and Kriging in ArcGIS to our lag and our regression predictions in R.**
 
-```{r bonus_upload, eval=FALSE, message=FALSE, warning=FALSE}
-lag_krige_idw <- st_read("myfilepath/myfile.shp") %>%
-  st_transform(crs = 4326)
+Let's load in our kriging and IDW predictions that we output from ArcGIS. Here are your tasks:
+
+1. Load your kriging and idw csv files using read.csv. Call these files `krige_pred` and `idw_pred`
+
+```{r bonus_real, include=FALSE}
+idw_pred <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_6/data/wk6_airPollution/idw_zonal.csv")
+
+krige_pred <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_6/data/wk6_airPollution/krige_zonal.csv")
 ```
 
-Can you join `lag_krige_idw` to `epa2` and examine differences between `reg.lag.pred` (our regression-generated predictions) and the IDW and kriging estimates? Do this either visually or through summary.
+2. Do some dplyr - `select` only columns `MEAN` and the unique fishnet cell ID from each table. Sometimes this unique ID is a little tricky - what's the right ID to get it to join to `epa`? `rename` the `MEAN` column to be `krige_pred` and `idw_pred` respectively.
 
+```{r bonus_real_dplyr, include=FALSE}
+idw_pred <- idw_pred %>%
+  select(MEAN, FID) %>%
+  rename(idw_pred = MEAN)
+
+krige_pred <- krige_pred %>%
+  select(MEAN, FID_) %>%
+  rename(krige_pred = MEAN)
+```
+
+3. Use a tabular join
+
+Join each data set to `epa` using the `left_join` function, like so:
+
+```{r join_example, eval=FALSE}
+
+new_data_set <- left_join(epa, idw_pred, by = c("left side unique ID" = "right side unique ID"))
+
+```
+
+```{r bonus_real_join, include=FALSE}
+tables_joined<- idw_pred %>%
+  left_join(., krige_pred, by = c("FID" = "FID_"))
+
+epa_joined <- epa %>% left_join(., tables_joined, by = c("FID_1" = "FID"))
+  
+```
+
+4. Can you map lag vs krige vs idw vs regression using ggplot and `grid_arrange`?
+
+```{r ggplot_preds, echo=FALSE}
+grid.arrange(ggplot() +
+    geom_sf(data = epa_joined, aes(fill=Ave_ozoneH), color = "transparent") + 
+    scale_fill_viridis(name="Spatial Lag") +
+    mapTheme,
+    ggplot() +
+    geom_sf(data = epa_joined, aes(fill=idw_pred), color = "transparent") + 
+    scale_fill_viridis(name="IDW") +
+    mapTheme,
+    ggplot() +
+    geom_sf(data = epa_joined, aes(fill=krige_pred), color = "transparent") + 
+    scale_fill_viridis(name="Kriging") +
+    mapTheme,
+    ggplot() +
+  geom_sf(data=epa2, aes(fill = reg.lag.pred), color = "transparent") + 
+  scale_fill_viridis(name="Regression") +
+  mapTheme,
+    ncol=2)
+```
 
 # Appendix 1 - Creating The Fishnet in R
 
