@@ -185,7 +185,7 @@ ggplot(preservePlotVariables %>%
                   mean, 
                   fill=as.factor(preserve)),
               stat="identity") + 
-     facet_wrap(~key) +
+     facet_wrap(~variable) +
      scale_fill_manual(values = c("dark blue", "dark green"),
                       labels = c("Not Preserved","Preserved"),
                       name = "") +
@@ -194,7 +194,7 @@ ggplot(preservePlotVariables %>%
 
 *Question:*
 
-**Can you calculate how many fishnet grid cells are preserved?  What is it on a percentage basis?**
+**Can you calculate how many fishnet grid cells are preserved?  What is it on a percentage basis? Can you re-scale slope to look at it how it varies from preserved/not-preserved?**
 
 # 4. Data wrangling
 
