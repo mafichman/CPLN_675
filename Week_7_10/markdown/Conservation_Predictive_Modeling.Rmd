@@ -559,10 +559,49 @@ In order to make other spatial variables for models you are building in R, you m
 
 Let's take our basic fishnet `preserve` from the earlier part of this exercise, and think about how we are going to wrangle some basic data into the fishnet and engineer some features.
 
-## Spatial join and summarize
+## Spatial joins and summaries
 
-Load some data
-st_join
+Let's join and summarize some spatial data to get it into our fishnet.
+
+First let's see which state forest district each cell belongs to ([these data come from PASDA and PA DCNR](https://www.pasda.psu.edu/uci/DataSummary.aspx?dataset=113)). We `st_read` state forest districts, reproject them to `crs = 2272` so they match `preserve` (not sure what CRS your data are in? query them with `st_crs`)
+
+```{r park_boundaries, message = FALSE, warning = FALSE}
+forest_districts <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/DCNR_BOF_Bndry_SFM201703.geojson") %>%
+  st_transform(2272)
+```
+We can quickly check the data and see how they look. They are large polygons.
+
+```{r ggplot_districts}
+
+ggplot()+
+  geom_sf(data = forest_districts)
+
+```
+
+We can join our `preserve` centroids to these polygons. (Why are we joining the centroids to the polygons? Think about the scale biases associated with different types of joins.)
+
+We will do this in a few steps, but it's easiest when it's all "piped" together.
+
+```{r join_forests}
+
+# Turn preserve into centroid points and join
+
+preserve_and_forests_centroid <-
+  st_join(preserve %>%
+            st_centroid(),
+          forest_districts)
+
+# Turn this data into a data frame, throw away everything but the new data and the unique id (select) of the fishnet cells and then join it back go the original
+
+preserve_and_forests_fishnet <-
+  left_join(preserve,
+            preserve_and_forests_centroid %>%
+              as.data.frame() %>%
+              select(DistrictNa, Id))
+```
+
+Now let's load in some points representing local parks, and summarize how many points we find in each of our fishnet cells. These data also come from DCNR, and I've turned
+
 group_by and summarize
 
 ## Rescale/recategorize data
