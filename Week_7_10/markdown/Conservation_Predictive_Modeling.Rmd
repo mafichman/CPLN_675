@@ -1,5 +1,5 @@
 ---
-title: "CPLN 675: Site suitability & predictive modeling"
+title: "CPLN 675: Spatial Predictive Modeling for Classification"
 author: "Ken Steif & Michael Fichman"
 date: "2/4/2022"
 output: 
@@ -352,7 +352,7 @@ What if we wanted to know whether our model generalized well across different co
 
 # Map predictions
 
-Now that we have tuned out model, let’s predict for the entire dataset.
+Now that we have tuned our model, let’s predict for the entire dataset.
 
 ```{r}
 allPredictions <- 
@@ -365,27 +365,32 @@ preserve <-
 
 Now we map the predictions.
 
-What would you title this map? Note how we use ntile in the aes parameter to create quintiles. The quintile labels are created in the scale_fill_manual function.
+What would you title this map? 
+
+Note how we use ntile in the aes parameter to create quintiles. (The quintile labels are created in the scale_fill_manual function.)
 
 ```{r}
  ggplot() + 
-    geom_sf(data=preserve, aes(fill=factor(ntile(allPredictions,5))), colour=NA) +
+    geom_sf(data=preserve, aes(fill=factor(ntile(allPredictions,5))), 
+            colour=NA) +
     scale_fill_manual(values = c("#edf8fb","#b3cde3","#8c96c6","#8856a7","#810f7c"),
                       labels=as.character(quantile(preserve$allPredictions,
-                                                 c(0.1,.2,.4,.6,.8),na.rm=T)),
+                                                 c(0.1,.2,.4,.6,.8),
+                                                 na.rm=T)),
                       name="Predicted\nProbabilities(%)\n(Quintile\nBreaks)") +
   mapTheme +
   labs(title="")
 ```
 
-Let’s map it again with the already other land cover types overlayed.
+Let’s map it again with the already other land cover types overlaid.
 
 ```{r}
  ggplot() + 
   geom_sf(data=preserve, aes(fill=factor(ntile(allPredictions,5))), colour=NA) +
   scale_fill_manual(values = c("#edf8fb","#b3cde3","#8c96c6","#8856a7","#810f7c"),
                     labels=as.character(quantile(preserve$allPredictions,
-                                                 c(0.1,.2,.4,.6,.8),na.rm=T)),
+                                                 c(0.1,.2,.4,.6,.8),
+                                                 na.rm=T)),
                     name="Predicted\nProbabilities(%)\n(Quintile\nBreaks)") +
   geom_sf(data=preserve  %>% 
                filter(preserve == 1), 
@@ -546,4 +551,28 @@ ggplot() +
   geom_point(data=unicornFarms, aes(st_coordinates(unicornFarms)[,1],
                                     st_coordinates(unicornFarms)[,2])) +
   mapTheme
+```
+
+# Appendix 3. Geoprocessing and data-wrangling vignettes
+
+In order to make other spatial variables for models you are building in R, you might find yourself wanting to summarize vector or raster information inside a fishnet.
+
+Let's take our basic fishnet `preserve` from the earlier part of this exercise, and think about how we are going to wrangle some basic data into the fishnet and engineer some features.
+
+## Spatial join and summarize
+
+Load some data
+st_join
+group_by and summarize
+
+## Rescale/recategorize data
+
+What if I wasn't so keen on steep slopes being related in a linear way to our outcome? Maybe I can reclassify them into what we call a "dummy variable" (aka a "fixed effect") - what if we call some new levels "high slope", "medium slope" and "low slope." I can do this with a `case_when` for multiple categories. I could also use `ifelse` to create two categories. Check out these examples:
+
+```{r rescale_slope}
+preserve %>%
+  mutate(slope_category_2 = ifelse(slope >= 6, "high slope", "low slope"),
+         slope_category_3 = case_when(slope < 3 ~ "low slope",
+                                      slope >= 3 & slope <6 ~ "medium slope",
+                                      slope >= 6 ~ "high slope"))
 ```
