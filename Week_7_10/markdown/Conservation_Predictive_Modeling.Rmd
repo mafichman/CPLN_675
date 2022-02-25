@@ -1,11 +1,12 @@
 ---
 title: "CPLN 675: Spatial Predictive Modeling for Classification"
 author: "Ken Steif & Michael Fichman"
-date: "2/4/2022"
-output: 
+date: "2/25/2022"
+output:
   html_document:
     toc: true
     toc_float: true
+    code_folding: hide
     code_download: true
 ---
 
@@ -32,11 +33,11 @@ This is a relatively simplified exercise - there are some detailed ways to "tune
 
 4. Learn about the properties and uses of long data.
 
-5. Understand the methods you will be using on Assignment 3.
+5. Understand the methods you will be using on Assignment 3 and understand the predictive modeling workflow.
 
 # 2. Setup
 
-To get started, let's install libraries and a set of ggplot styles we call `mapTheme`.
+To get started, let's install libraries and a set of ggplot styles we call `mapTheme` and `plotTheme`.
 
 If you don't have particular libraries installed, run the command `install.packages('name_of_package_in_quotes')` with the relevant package, and then call them into your environment with a `library` command.
 
@@ -72,15 +73,31 @@ mapTheme <- theme(plot.title =element_text(size=12),
                   legend.position = "right",
                   plot.margin = margin(1, 1, 1, 1, 'cm'),
                   legend.key.height = unit(1, "cm"), legend.key.width = unit(0.2, "cm"))
+
+plotTheme <- theme(
+  plot.title =element_text(size=12),
+  plot.subtitle = element_text(size=8),
+  plot.caption = element_text(size = 6),
+  axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+  axis.text.y = element_text(size = 10),
+  axis.title.y = element_text(size = 10),
+  # Set the entire chart region to blank
+  panel.background=element_blank(),
+  plot.background=element_blank(),
+  #panel.border=element_rect(colour="#F0F0F0"),
+  # Format the grid
+  panel.grid.major=element_line(colour="#D0D0D0",size=.75),
+  axis.ticks=element_blank())
 ```
 
 Let’s load our data. We are going to include two datasets: `preserve`, which is a fishnet dataset representing preserved land, and `protected`, which is the original protected lands shapefile.
 
-```{r load_data, warning = FALSE, message = FALSE}
+```{r load_data, warning = FALSE, message = FALSE, results = "hide"}
 preserve <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/fishnet3k_pa_JoinDEM_Slope_distSlope_distUrban_landCover_distRivers.geojson")
 
 protected <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/pa_protected_lands2.geojson")
 ```
+
 We are going to load data in that are projected in WGS 84, which is the "web mercator" coordinate system, which is in units of decimal degrees (e.g. lat/lon). We want to re-project it to something with a linear unit in feet or meters so that we can do various distance measurements later on.
 
 Let's project it to PA State Plane, which has a CRS (coordinate reference system) of 2272.
@@ -98,7 +115,7 @@ protected <- protected %>%
 
 Let's also load a shape of PA counties from the US Census via the `tigris` package, make sure it's an sf object (`st_as_sf`) and reproject it to crs = 2272 like our other data (`st_transform`).
 
-```{r pa_shp, message= FALSE, warning = FALSE, echo = FALSE}
+```{r pa_shp, message= FALSE, warning = FALSE, results = "hide"}
 counties <- counties('PA') %>%
   st_as_sf() %>%
   st_transform(crs = 2272)
@@ -116,9 +133,9 @@ glimpse(protected)
 
 ## 3.1. Maps
 
-Let's plot the shapefile of our protected lands on top of our counties. We give the shape some color and transparency.
+Let's plot the sf object of our protected lands on top of our counties. We give the shape some color and transparency (alpha).
 
-```{r}
+```{r first_plot, warning = FALSE, message = FALSE}
 ggplot() +
   geom_sf(data = counties)+
   geom_sf(data=protected, 
@@ -132,6 +149,8 @@ ggplot() +
 Now let’s plot the fishnet version. 
 
 Notice we set the `fill` of our `geom_sf` to `as.factor(preserve)` and set the color to "transparent" outside the aesthetics. What does this do?
+
+Can you play with this ggplot and switch the colors and styling?
 
 ```{r plot_fishnet}
 ggplot() + 
@@ -178,12 +197,15 @@ preservePlotVariables <-
 
 *Note* there is a more modern version of `gather` known as `pivot_longer`, where the syntax would look like this:
 
-```{r pivot_longer, echo=FALSE}
+```{r pivot_longer, eval=FALSE}
 preserve %>% as.data.frame() %>%
     select(preserve,elevation,slope,dSteepSlop,dUrban,distRivers) %>% 
     pivot_longer(cols = -preserve)
 ```
 
+wide and long data are a weird concept - this graphic is pretty helpful understanding how data can transform from one form to another.
+
+*Can you think of a few situations in which one form or another is appropriate?*
 
 ![Pivoting between wide and long data](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/images/tidyr-spread-gather.gif)
 Image: https://www.garrickadenbuie.com/
@@ -220,7 +242,9 @@ preserve <-
   mutate(landCover = as.factor(landCover))
 ```
 
-# Model building
+# 5. Model building
+
+## 5.1. Partition training and test sets
 
 Now we create training and test sets. 
 
@@ -228,11 +252,13 @@ Let's look over this operation:
 
 - `set.seed` generates a random number
 
-- `createDataPartition` randomly separates our data into two sets. Why do you think `preserve$landCover` is specified below?
+- `createDataPartition` randomly separates our data into two sets. We set `p` to .7 - a 70% training set and 30% test set.
 
-Why is it important to have separate training and test sets?
+*Why do you think `preserve$landCover` is specified below?*
 
-```{r}
+*Why is it important to have separate training and test sets?*
+
+```{r training_set}
 set.seed(3456)
 trainIndex <- createDataPartition(preserve$landCover, p = .70,
                                   list = FALSE,
@@ -242,9 +268,13 @@ preserveTrain <- preserve[ trainIndex,]
 preserveTest  <- preserve[-trainIndex,]
 ```
 
-Now let’s estimate a logistic regression model. Note how we can use the dplyr pipes right in the data parameter. We have to convert to a data frame because R won’t know how to run a regression on an sf. Also note that we are only training our model on the training set, preserveTrain.
+## 5.2. Make a binomial model
 
-```{r}
+Now let’s estimate a logistic regression model. The binomial logit model runs in the `glm` function (generalized linear models). We specify the dependent variable as `preserve` and run the model on our training set `preserveTrain`.
+
+Note how we can use the dplyr pipes right in the data parameter. We have to convert to a data frame because R won’t know how to run a regression on an sf.
+
+```{r firstModel, warining = FALSE, message = FALSE}
 preserveModel <- glm(preserve ~ ., 
                     family="binomial"(link="logit"), data = preserveTrain %>%
                                                             as.data.frame() %>%
@@ -255,31 +285,35 @@ summary(preserveModel)
 
 Now create a more robust model.
 
-# Model validation
+## 5.3. Model validation
 
-When it’s done, we output classProbs which is the predicted probability of a test set (preserveTest) fishnet cell being conserved conditional on our model. This uses the predict function. type="reponse" ensures that R returns probabilities that range from 0 to 1.
+Using the `predict` function, we create a vector of classification probabilities we call `classProbs`. These are the predicted probability of a test set (`preserveTest`) fishnet cell being conserved conditional on our model. Setting the parameter `type="reponse"` returns probabilities that range from 0 to 1.
 
-What do you make of the distribution of classProbs?
+*What do you make of the distribution of classProbs?*
 
-```{r}
+```{r predict_first}
 classProbs <- predict(preserveModel, preserveTest, type="response")
 
 hist(classProbs)
 ```
 
-Let’s put classProbs into a data frame along with the observed preserve outome, which is either 1 for preserved land or 0 for unpreserved.
+Let’s put classProbs into a data frame along with the observed `preserve` outome, which is either 1 for preserved land or 0 for unpreserved.
 
 Then we build this funky plot, testProbsPlot. What do you think it shows? Can you come up with a title for this plot?
 
-```{r}
+```{r plot_preds}
 testProbs <- data.frame(obs = as.numeric(preserveTest$preserve),
                         pred = classProbs)
 
-ggplot(testProbs, aes(x = pred, fill=as.factor(obs))) + geom_density() +
-  facet_grid(obs ~ .) + xlab("Probability") + geom_vline(xintercept = .5) +
+ggplot(testProbs, aes(x = pred, fill=as.factor(obs))) + 
+  geom_density() +
+  facet_grid(obs ~ .) + 
+  xlab("Probability") + 
+  geom_vline(xintercept = .5) +
   scale_fill_manual(values = c("dark blue", "dark green"),
                       labels = c("Not Preserved","Preserved"),
-                      name = "")
+                      name = "")+
+  plotTheme
 ```
 
 Now we have to figure out at which probability level do we wish to classify land as being preserved.How do we make this decision?
@@ -354,7 +388,8 @@ ggplot(as.data.frame(cvFit$resample), aes(Accuracy)) +
   geom_histogram() +
   scale_x_continuous(limits = c(0, 1)) +
   labs(x="Accuracy",
-       y="Count")
+       y="Count")+
+  plotTheme
 ```
 
 The key to this plot is as follows. We want a model that is generalizable, particularly to data it hasn’t seen already. Cross-validation helps us understand how the model works in this context. If our model was not generalizable to ‘out-of-sample’ data, then we should expect wildly different accuracies across each of the 100 folds.
@@ -666,6 +701,8 @@ ggplot()+
   geom_sf(data = preserve_and_forests_and_parks_fishnet,
           aes(fill = parks_sqmi), color = "transparent")+
   scale_fill_viridis()+
+  labs(title="Density of park access points",
+       subtitle="Points/ sqmi ")+
   mapTheme
 
 ```
