@@ -73,23 +73,26 @@ Now that we’ve seen some more traditional interpolation techniques, let’s se
 
 We’re going to begin with some instructions on how to create the spatial lag variable in ArcGIS. This is the variable that will allow us to model the spatial autocorrelation. It is defined as the average ozoneHigh of any locations k nearest training neighbors.
 
-1. Create a new shapefile of just the training grid cells, called `training`.
+1. Create a new shapefile of just the training grid cells, called `training`. 
+- Make sure you save this new shapefile to your project's folder or geodatabase.
 
 2. We are going to measure nearest neighbor distance from our fishnet cells to the training set. Using the ‘Generate Near Table’ tool, set the `Mid_Atlantic_EPA_Dataset` as the Input Features (make sure you have unselected any features you might have selected in the last step!) and use `training` as the Near Features. 
 
 3. To specify how many nearest neighbors to measure distance to, uncheck ‘Find only closest feature’ and set ‘Maximum number of closest features to 3’. Call this new table `nearTraining`.
 
-4. Note that the new table has the distance from each `IN_FID` from the Mid-Atlantic shapefile to its nearest `NEAR_FID` from the training shapefile. Note there are three entries for each `IN_FID` because we chose 3 nearest neighbors.
+- Note that the new table has the distance from each `IN_FID` from the Mid-Atlantic shapefile to its nearest `NEAR_FID` from the training shapefile. Note there are three entries for each `IN_FID` because we chose 3 nearest neighbors.
+- Before proceeding to step 4, you may need to bring in your `training` shapefile from your project's folder or geodatabase (in some cases, the creation of the new neartraining table may have removed it from your contents pane).
 
-- We’re not interested in the distances per se - we want to get the average high ozone observation for each of the three nearest grid cells. We join the original `training` shapefile to the `nearTraining` using `NEAR_FID` from the latter to join to `OBJECTID` from the former (this might also be called FID, depending on your version of ArcGIS). Call this new table `nearTraining2`. Now we know the `ozoneHigh` of each training grid cell where there’s an air quality sensor.
 
-5. Export this joined table to its own `.dbf` file or geodatabase table as `nearTraining2`.
+4. We’re not interested in the distances per se - we want to get the average high ozone observation for each of the three nearest grid cells. We join the original `training` shapefile to the `nearTraining` using `NEAR_FID` from the latter to join to `OBJECTID` from the former (this might also be called `FID`, depending on your version of ArcGIS). The join adds new columns to the `training` shapefile. Now we know the `ozoneHigh` of each training grid cell where there’s an air quality sensor.
+
+5. Export this joined table to its own `.dbf` file or geodatabase table and call it `nearTraining2`.
 
 6. We’re going to calculate the average `ozoneHigh` of each cell’s 3 nearest training neighbors. Add `nearTraining2` to your viewer; open the attribute table; right click on IN_FID and click `summarize`. Drop down the `ozoneHigh` field and make the statistic type `MEAN`. Name this table `nearTraining3` and run the tool.
 
 7. Note that `nearTraining3` has 1,025 rows (one for each cell in the original Mid-Atlantic shapefile) and an average `ozoneHigh` calculation. If you have the wrong number of cells
 
-8. Join `nearTraining3` to the original Mid-Atlantic shapefile and map the `average_OzoneHigh`.
+8. Join `nearTraining3` to the original Mid-Atlantic shapefile and map the `average_OzoneHigh` (also may be called `mean_OzoneHigh`).
 
 9. Export this shapefile as `Mid_Atlantic_EPA_Dataset_withLag` Move this shapefile into R (see section 4.1 of this Markdown). If you can't complete this routine, you can catch up by using a similarly named data set found in the course github (the link to this data set, as a geojson, is below.)
 
