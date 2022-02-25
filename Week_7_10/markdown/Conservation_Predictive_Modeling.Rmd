@@ -22,6 +22,18 @@ Recall our site suitability exercise in Week 1 - we used our own spatial decisio
 
 This is a relatively simplified exercise - there are some detailed ways to "tune" models to make them more powerful and flexible - to introduce you to logistic regression as a tool for classification. You will be able to use this general workflow in your midterm project, when you will create your own features for a similar model.
 
+## 1.1. Learning objectives
+
+1. Use binomial logistic regression to create a classification prediction.
+
+2. Use training and testing data to tune a model.
+
+3. Learn about goodness of fit and error metrics for classification models.
+
+4. Learn about the properties and uses of long data.
+
+5. Understand the methods you will be using on Assignment 3.
+
 # 2. Setup
 
 To get started, let's install libraries and a set of ggplot styles we call `mapTheme`.
@@ -38,6 +50,7 @@ library(tidyverse)
 library(knitr)
 library(kableExtra)
 library(tigris)
+library(viridis)
 ```
 
 
@@ -172,7 +185,7 @@ preserve %>% as.data.frame() %>%
 ```
 
 
-![Pivoting between wide and long data](~/Github/CPLN_675/Week_7_10/images/tidyr-spread-gather.gif)
+![Pivoting between wide and long data](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/images/tidyr-spread-gather.gif)
 Image: https://www.garrickadenbuie.com/
 
 Let's examine some of the variables and how they vary across our preserved/not preserved variable. Our `preservePlotVariables` data frame has rows for each cell-variable pair, we `group_by` variable and preservation status and take the mean value for each variable by status.
@@ -198,12 +211,12 @@ ggplot(preservePlotVariables %>%
 
 # 4. Data wrangling
 
-Lets build another data set of just the variables we want to analyze. Notice that land cover is an integer but we want it to be a factor, so it gets recoded.
+Lets build another data set of just the variables we want to analyze. Notice that land cover is an integer but we want it to be a factor, so it gets re-coded.
 
 ```{r}
 preserve <- 
   preserve %>%
-  select(preserve,elevation,slope,dSteepSlop,landCover,dUrban,distRivers) %>%
+  select(preserve,elevation,slope,dSteepSlop,landCover,dUrban,distRivers, Id) %>%
   mutate(landCover = as.factor(landCover))
 ```
 
@@ -235,7 +248,7 @@ Now let’s estimate a logistic regression model. Note how we can use the dplyr 
 preserveModel <- glm(preserve ~ ., 
                     family="binomial"(link="logit"), data = preserveTrain %>%
                                                             as.data.frame() %>%
-                                                            select(-geometry))
+                                                            select(-geometry, -Id))
 summary(preserveModel)
 
 ```
@@ -264,7 +277,7 @@ testProbs <- data.frame(obs = as.numeric(preserveTest$preserve),
 
 ggplot(testProbs, aes(x = pred, fill=as.factor(obs))) + geom_density() +
   facet_grid(obs ~ .) + xlab("Probability") + geom_vline(xintercept = .5) +
-  scale_fill_manual(values = c("dodgerblue4", "darkgreen"),
+  scale_fill_manual(values = c("dark blue", "dark green"),
                       labels = c("Not Preserved","Preserved"),
                       name = "")
 ```
@@ -325,7 +338,7 @@ ctrl <- trainControl(method = "cv",
 
 cvFit <- train(as.factor(preserve) ~ .,  data = preserve %>% 
                                                 as.data.frame() %>%
-                                                select(-geometry,-slope,-landCover), 
+                                                select(-geometry,-slope,-landCover, -Id), 
                method="glm", family="binomial",
                trControl = ctrl)
 
@@ -394,7 +407,7 @@ Let’s map it again with the already other land cover types overlaid.
                     name="Predicted\nProbabilities(%)\n(Quintile\nBreaks)") +
   geom_sf(data=preserve  %>% 
                filter(preserve == 1), 
-               fill="darkgreen",colour=NA) +
+               fill="dark green",colour=NA) +
   geom_sf(data=preserve %>% 
               filter(landCover == 2), 
             fill="red",colour=NA) +  
@@ -457,9 +470,9 @@ What would a reading in the top most left corner represent?
 
 # Appendix 2: Measure nearest neighbor distance
 
-Imagine that we believe conservation is really a function of distance to Unicorn Farms and we wish to engineer a feature that was distance from each fishnet grid cell to the nearest unicorm farm. Note that I have given these instructions in ArcMap as part of the interpolation Markdown.
+Imagine that we believe conservation is really a function of distance to Unicorn Farms and we wish to engineer a feature that was distance from each fishnet grid cell to the nearest unicorn farm. Note that we have these instructions in Arc as part of the Week 6 Markdown.
 
-First we have to create our unicorm farms. We do this by taking a random sample of 50 preserve fishnet grid cells, taking their centroids with st_centroid and mapping the mapping them.
+First we have to create our unicorn farms. We do this by taking a random sample of 50 preserve fishnet grid cells, taking their centroids with st_centroid and mapping the mapping them.
 
 ```{r}
 unicornFarms <-
