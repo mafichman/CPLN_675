@@ -163,24 +163,6 @@ ggplot() +
   mapTheme
 ```
 
-
-That figure above takes a long time to plot - a lot of vector drawing!
-
-Although we are dealing with a fishnet, for speed's sake, let’s try to plot as points using `geom_point` instead of `geom_sf`. Note that there are centroid fields, `x` and `Y` in the data (note accidentally one is capitalized). These get input into the aes call below. size is outside of aes as it gets a generic parameter, not one from the data frame.
-
-In addition, because we are no longer using fill, we use `scale_colour_manual` to create a color gradient.
-
-```{r map_points}
-ggplot() + 
-  geom_point(data=preserve, aes(x, Y, colour=as.factor(preserve)), size=2) +
-  scale_colour_manual(values = c("dark blue", "dark green"),
-                    labels = c("Not Preserved","Preserved"),
-                    name = "") +
-  labs(title="Protected lands in Pennsylvania (Points)",
-       subtitle ="This plots much faster!") +
-  mapTheme
-```
-
 ## 3.2. Plots
 
 Let’s build some bar plots that show differences in our independent variables across land that has and has not been preserved. 
@@ -274,6 +256,10 @@ Now let’s estimate a logistic regression model. The binomial logit model runs 
 
 Note how we can use the dplyr pipes right in the data parameter. We have to convert to a data frame because R won’t know how to run a regression on an sf.
 
+Let's look at the model output, we see that we have coefficients, and p-values, but no R-squared. There are other goodness of fit metrics we will look at. The AIC, though not on a 0-1 scale like R-squared, has a similar function in that it tells you about overall model fit, but not about error and accuracy.
+
+We are not really interested in our coefficients other than their magnitude, directionality and p-value (generall). But for the record, the way the coefficients in a logistic regression are interpreted is different than in OLS - we are talking in terms of "odds" of an outcome occurring (in our case odds of land being preserved.). If we exponentiate the coefficient (`exp()`) we can interpret it as *all else equal* the exponentiated value being the increase or decrease in the odds of the outcome.
+
 ```{r firstModel, warining = FALSE, message = FALSE}
 preserveModel <- glm(preserve ~ ., 
                     family="binomial"(link="logit"), data = preserveTrain %>%
@@ -282,8 +268,6 @@ preserveModel <- glm(preserve ~ .,
 summary(preserveModel)
 
 ```
-
-Now create a more robust model.
 
 ## 5.3. Model validation
 
@@ -297,9 +281,11 @@ classProbs <- predict(preserveModel, preserveTest, type="response")
 hist(classProbs)
 ```
 
-Let’s put classProbs into a data frame along with the observed `preserve` outome, which is either 1 for preserved land or 0 for unpreserved.
+Let’s put `classProbs` into a data frame along with the observed `preserve` outome, which is either `1` for preserved land or `0` for unpreserved.
 
-Then we build this funky plot, testProbsPlot. What do you think it shows? Can you come up with a title for this plot?
+Then we build this funky plot, `testProbsPlot`. The vertical line represents a 0.5 probability of preservation.
+
+*Can you interperet this plot? Can you come up with a title for this plot?*
 
 ```{r plot_preds}
 testProbs <- data.frame(obs = as.numeric(preserveTest$preserve),
@@ -316,11 +302,13 @@ ggplot(testProbs, aes(x = pred, fill=as.factor(obs))) +
   plotTheme
 ```
 
-Now we have to figure out at which probability level do we wish to classify land as being preserved.How do we make this decision?
+### 5.3.1 Confusion metrics
 
-Let’s choose 50% and then create a confusion matrix. Below we set the reference to the observed preserved status, data to the predicted outcome, and make sure to state which factor level is the positive (ie. preserved) level. Note that confusionMatrix does not take numeric inputs, only factors.
+*Now we have to figure out at which probability level do we wish to classify land as being preserved.  How do we make this decision?*
 
-```{r}
+Let’s (arbitrarily for now) choose 50% and then create a table of our correct and incorrect predictions, called a "confusion matrix". Below we set the reference to the observed preserved status, data to the predicted outcome, and make sure to state which factor level is the positive (ie. preserved) level. Note that `confusionMatrix` does not take numeric inputs, only factors.
+
+```{r confusion_matrix, message = FALSE, warning = FALSE}
 testProbs$predClass  = ifelse(testProbs$pred > .5 ,1,0)
 
 caret::confusionMatrix(reference = as.factor(testProbs$obs), 
@@ -330,18 +318,25 @@ caret::confusionMatrix(reference = as.factor(testProbs$obs),
 
 What is the sensitivy and specificity suggest about our model? What is accuracy suggest? Why would we choose a higher threshold cutoff?
 
-Predicted = 0, Observed = 0 —> True Negative
-Predicted = 1, Observed = 1 —> True Positive
-Predicted = 1, Observed = 0 —> False Positive
-Predicted = 0, Observed = 1 —> False Negative
+**Predicted = 0, Observed = 0 —> True Negative**
 
-1. Sensitivity - the proportion of actual positives (1’s) that were predicted to be positive. Also known as “true positive rate”.
+**Predicted = 1, Observed = 1 —> True Positive**
 
-2. Specificity - The proportion of actual negatives (0’s) that were predicted to be negatives. Also known as “true negative rate”.
+**Predicted = 1, Observed = 0 —> False Positive**
 
-How about an ROC Curve. What does this tell us? See Appendix 1.
+**Predicted = 0, Observed = 1 —> False Negative**
 
-```{r}
+**1. Sensitivity - the proportion of actual positives (1’s) that were predicted to be positive. Also known as “true positive rate”.**
+
+**2. Specificity - The proportion of actual negatives (0’s) that were predicted to be negatives. Also known as “true negative rate”.**
+
+### 5.3.2. ROC Curve
+
+Let's create an ROC (receiver operating characteristic) curve. What does this tell us? 
+
+See Appendix 1 for more on ROC curves.
+
+```{r roc_curve, message = FALSE, warning = FALSE}
 
 ggplot(testProbs, aes(d = obs, m = pred)) + 
   geom_roc(n.cuts = 50, labels = FALSE) + 
@@ -351,13 +346,13 @@ ggplot(testProbs, aes(d = obs, m = pred)) +
 
 How about the area under the curve?
 
-```{r}
+```{r auc, warning = FALSE}
 auc(testProbs$obs, testProbs$pred)
 ```
 
-# Cross validation
+### 5.3.3. Cross validation
 
-Testing the power of your model on out of sample data is so critical to the machine learning process. Cross validation iteratively creates many randomly generated test sets or ‘folds’, testing the power of your model on each.
+Testing the power of your model on out of sample data is critical to the machine learning process. Cross-validation iteratively creates many randomly generated test sets or ‘folds’, testing the power of your model on each.
 
 First we set the ctrl parameter which specifies the flavor of cross validation we wish to use. You can see all the different cross validation options here. In this instance, number = 100 tell us that we are going to iteratively test our models on 100 hold out test sets.
 
@@ -365,7 +360,7 @@ Then we estimate our model using the train function from the caret package. Note
 
 Make sure that you update the regression to the model you specified above.
 
-```{r}
+```{r k_fold, warning = FALSE, message = FALSE}
 ctrl <- trainControl(method = "cv", 
                      number = 100, 
                      savePredictions = TRUE)
@@ -381,9 +376,9 @@ cvFit
 
 Notice that the accuracy metric is actually the average accuracy across all 100 folds. While that is useful, what we are really interested in is the variability of accuracy across all 100 folds. Before going any further into that, let’s plot a histogram of accuracy across all 100 folds.
 
-Before doing so, check out cvFit$resample. What information is stored here?
+Before doing so, check out `cvFit$resample`. What information is stored here?
 
-```{r}
+```{r cv_hist, warning = FALSE, message = FALSE}
 ggplot(as.data.frame(cvFit$resample), aes(Accuracy)) + 
   geom_histogram() +
   scale_x_continuous(limits = c(0, 1)) +
@@ -398,11 +393,11 @@ Is that what we see here? Do you think we have a generalizable model?
 
 What if we wanted to know whether our model generalized well across different counties (or kinds of counties)?
 
-# Map predictions
+### 5.3.2. Map predictions
 
-Now that we have tuned our model, let’s predict for the entire dataset.
+Now that we have tuned our model, let’s predict for the entire dataset and assess our predictions.
 
-```{r}
+```{r predict_whole, warning = FALSE, message= FALSE}
 allPredictions <- 
   predict(cvFit, preserve, type="prob")[,2]
   
@@ -417,7 +412,7 @@ What would you title this map?
 
 Note how we use ntile in the aes parameter to create quintiles. (The quintile labels are created in the scale_fill_manual function.)
 
-```{r}
+```{r predicted_map1, warning = FALSE, message = FALSE}
  ggplot() + 
     geom_sf(data=preserve, aes(fill=factor(ntile(allPredictions,5))), 
             colour=NA) +
@@ -432,7 +427,7 @@ Note how we use ntile in the aes parameter to create quintiles. (The quintile la
 
 Let’s map it again with the already other land cover types overlaid.
 
-```{r}
+```{r predicted_map2, warning = FALSE, message = FALSE}
  ggplot() + 
   geom_sf(data=preserve, aes(fill=factor(ntile(allPredictions,5))), colour=NA) +
   scale_fill_manual(values = c("#edf8fb","#b3cde3","#8c96c6","#8856a7","#810f7c"),
@@ -451,7 +446,28 @@ Let’s map it again with the already other land cover types overlaid.
        subtitle="Pennsylvania; Existing conserved land in green; Existing development in red ")
 ```
 
-Does this type of model have more, less or the same level of usefullness as a raster-based site suitability? Why?
+We could assess many things about our model by exploring our errors.
+
+Let's map our confusion metrics across our entire data set for a 50% threshold. Notice I'm doing some `dplyr` commands to `preserve` and piping it into my ggplot call to keep from making a new data object. Nice shortcut.
+
+*Do we think there's something systematic to these errors? How would we find that out?*
+
+```{r error_map, warning = FALSE, message= FALSE}
+preserve %>%
+  mutate(confResult=case_when(allPredictions < 50 & preserve==0 ~ "True_Negative",
+                              allPredictions >= 50 & preserve==1 ~ "True_Positive",
+                              allPredictions < 50 & preserve==1 ~ "False_Negative",
+                              allPredictions >= 50 & preserve==0 ~ "False_Positive")) %>%
+  ggplot()+
+  geom_sf(aes(fill = confResult), color = "transparent")+
+  scale_fill_manual(values = c("Red","Orange","Light Blue","Light Green"),
+                    name="Outcomes")+
+  labs(title="Confusion Metrics") +
+  mapTheme
+
+```
+
+*Does this type of model have more, less or the same level of usefulness as a raster-based site suitability? Why?*
 
 # Appendix 1: ROC Curves - Is it a bird or a German Bomber?
 
@@ -473,9 +489,10 @@ f <- c(6,100,0,100)
 
 radarObservations <- data.frame(rbind(a,b,c,d,e,f))
 colnames(radarObservations) <- c("Radar_Setting",
-                                "Sensitivity__Pct_German_Planes_Detected",
-                                "Specificity__Pct_Geese_Flocks_Detected",
-                                "Pct_of_Geese_Flocks_Incorrectly_Identified")
+                                "Sensitivity_Pct_Planes_Detected",
+                                "Specificity_Pct_Geese_Detected",
+                                "Pct_of_Geese_Incorrectly_Identified")
+
 kable(radarObservations)
 ```
 
@@ -487,8 +504,8 @@ Let’s create a plot of True Postive Rate and False Positive Rate. It may be ea
 
 ```{r}
 ggplot(radarObservations, 
-       aes(100 - Specificity__Pct_Geese_Flocks_Detected,
-           Sensitivity__Pct_German_Planes_Detected)) +
+       aes(100 - Specificity_Pct_Geese_Detected,
+           Sensitivity_Pct_Planes_Detected)) +
   geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
   geom_point(size=2) + 
   geom_line() +
@@ -613,7 +630,7 @@ Let's join and summarize some spatial data to get it into our fishnet.
 
 First let's see which state forest district each cell belongs to ([these data come from PASDA and PA DCNR](https://www.pasda.psu.edu/uci/DataSummary.aspx?dataset=113)). We `st_read` state forest districts, reproject them to `crs = 2272` so they match `preserve` (not sure what CRS your data are in? query them with `st_crs`)
 
-```{r park_boundaries, message = FALSE, warning = FALSE}
+```{r park_boundaries, message = FALSE, warning = FALSE, results= "hide"}
 forest_districts <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/DCNR_BOF_Bndry_SFM201703.geojson") %>%
   st_transform(2272)
 ```
@@ -630,7 +647,7 @@ We can join our `preserve` centroids to these polygons. (Why are we joining the 
 
 We will do this in a few steps, but it's easiest when it's all "piped" together.
 
-```{r join_forests}
+```{r join_forests, warning = FALSE, message = FALSE}
 
 # Turn preserve into centroid points and join
 
@@ -650,7 +667,7 @@ preserve_and_forests_fishnet <-
 
 Now let's load in some points representing local park access points, and summarize how many points we find in each of our fishnet cells. These data [also come from DCNR](https://www.pasda.psu.edu/uci/DataSummary.aspx?dataset=308), and we reproject them to `crs = 2272` as well.
 
-```{r load_parks, warning = FALSE, message = FALSE}
+```{r load_parks, warning = FALSE, message = FALSE, results = "hide"}
 local_parks <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/DCNR_LocalParkAccess201511.geojson") %>%
   st_transform(2272)
 ```
@@ -659,7 +676,7 @@ Inspect the data and you will see that these are thousands of points across the 
 
 Notice we join the parks on the left hand side of this join. What happens if you do it the other way?
 
-```{r join_parks}
+```{r join_parks, message = FALSE, warning = FALSE}
 parks_and_fishnet <- st_join(local_parks, preserve_and_forests_fishnet)
 ```
 
@@ -669,7 +686,7 @@ Here we do a 'right_join` - we keep all the observations on the right hand side 
 
 What is the `.` thing you ask? Well in a join you need two sides to write the function - so the period stands in for the data being piped in.
 
-```{r park_summary}
+```{r park_summary, message=FALSE, warning= FALSE}
 
 preserve_and_forests_and_parks_fishnet <-
   parks_and_fishnet %>%
