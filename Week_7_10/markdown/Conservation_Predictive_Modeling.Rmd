@@ -211,7 +211,21 @@ ggplot(preservePlotVariables %>%
 
 *Question:*
 
-**Can you calculate how many fishnet grid cells are preserved?  What is it on a percentage basis? Can you re-scale slope to look at it how it varies from preserved/not-preserved?**
+**Can you calculate how many fishnet grid cells are preserved?  What is it on a percentage basis? Can you re-scale slope to look at it how it varies from preserved/not-preserved using the 'scales' argument in the facet argument?**
+
+*Bonus - check out this code - another way to examine these data, what do you see here that might inform a model?*
+
+```{r violin_plot, eval=FALSE}
+ggplot(preservePlotVariables) + 
+     geom_violin(aes(x = as.factor(preserve), 
+                  y = value, fill = as.factor(preserve))) + 
+     facet_wrap(~variable, scales = "free") +
+     labs(x="Preserved", y="Value") + 
+     scale_fill_manual(values = c("dark blue", "dark green"),
+     labels = c("Not Preserved","Preserved"), name = "") +
+     labs(x="Preserved", y="Value") + 
+  plotTheme
+```
 
 # 4. Data wrangling
 
