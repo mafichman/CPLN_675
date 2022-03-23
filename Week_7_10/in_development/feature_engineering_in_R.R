@@ -75,15 +75,15 @@ plot(flood_rc)
 
 # If you use terra, do this:
 
-m <- c(0, 0, 0,
-       1, 2, 1,
-       2, 3, 0)
+#m <- c(0, 0, 0,
+#       1, 2, 1,
+#       2, 3, 0)
 
-rclmat <- matrix(m, ncol=3, byrow=TRUE)
+#rclmat <- matrix(m, ncol=3, byrow=TRUE)
 
-flood_rc <- classify(flood, rclmat, include.lowest=TRUE)
+#flood_rc <- classify(flood, rclmat, include.lowest=TRUE)
 
-# st_distance - fishnet centroids to hydrology
+#---- st_distance - fishnet centroids to hydrology
 
 fishnet_centroid <- fishnet %>%
   st_centroid()
@@ -154,10 +154,10 @@ hist(slope_rc)
 
 # join slope to dem
 
-slope_sf <- rasterToPolygons(slope_rc, fun=function(x){x %in% c(0,1,2)}) %>%
+slope_sf <- rasterToPolygons(slope_rc, fun=function(x){x < 3}) %>%
   st_as_sf()
 
-test_df <- st_join(fishnet_centroid, inundation_sf %>% 
+test_df <- st_join(fishnet_centroid, slope_sf %>% 
           st_transform(st_crs(fishnet_centroid))) %>%
   as.data.frame () %>%
   dplyr::select(-geometry) %>%
