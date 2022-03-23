@@ -4,6 +4,9 @@ library(raster)
 library(terra)
 library(sp)
 library(mapview)
+library(caret)
+library(plotROC)
+library(pROC)
 
 # Calgary hydrology
 
@@ -139,8 +142,7 @@ area_slope <- raster::terrain(dem, opt = 'slope', unit = 'degrees')
 hist(area_slope)
 
 reclass_slope_df <-c(0, 5, 0,
-               5, 10, 1,
-               10, 50, 2)
+               5, 50, 1)
 
 reclass_matrix_slope <-  matrix(reclass_slope_df, ncol = 3,
                           byrow = TRUE)
@@ -154,16 +156,22 @@ hist(slope_rc)
 
 # join slope to dem
 
-slope_sf <- rasterToPolygons(slope_rc, fun=function(x){x < 3}) %>%
+# alternative extract(r, sp, method='bilinear')
+
+slope_sf <- rasterToPolygons(slope_rc, fun=function(x){x==1}) %>%
   st_as_sf()
 
-test_df <- st_join(fishnet_centroid, slope_sf %>% 
+fishnet <- st_join(fishnet_centroid, slope_sf %>% 
           st_transform(st_crs(fishnet_centroid))) %>%
   as.data.frame () %>%
   dplyr::select(-geometry) %>%
-  right_join(., fishnet)
+  right_join(., fishnet) %>%
+  mutate(slope = (ifelse(is.na(slope) == TRUE, 0, 1))) %>%
+  mutate(slope = as.factor(slope))
 
 # call final data set flood
+
+flood <- fishnet
 
 # Make a simple model and validate
 
@@ -175,8 +183,62 @@ trainIndex <- createDataPartition(flood$slope, p = .70,
 floodTrain <- flood[ trainIndex,]
 floodTest  <- flood[-trainIndex,]
 
-preserveModel <- glm(preserve ~ ., 
-                     family="binomial"(link="logit"), data = preserveTrain %>%
+floodModel <- glm(inundation ~ ., 
+                     family="binomial"(link="logit"), data = floodTrain %>%
                        as.data.frame() %>%
-                       select(-geometry, -Id))
-summary(preserveModel)
+                       dplyr::select(-geometry, -uniqueID))
+
+summary(floodModel)
+
+classProbs <- predict(floodModel, floodTest, type="response")
+
+hist(classProbs)
+
+testProbs <- data.frame(obs = as.numeric(floodTest$inundation),
+                        pred = classProbs)
+
+ggplot(testProbs, aes(x = pred, fill=as.factor(obs))) + 
+  geom_density() +
+  facet_grid(obs ~ .) + 
+  xlab("Probability") + 
+  geom_vline(xintercept = .5) +
+  scale_fill_manual(values = c("dark blue", "dark green"),
+                    labels = c("No Flooding","Flooding"),
+                    name = "")
+
+# See about matrix for .5 - actual is probably way lower
+
+testProbs$predClass  = ifelse(testProbs$pred > .5 ,1,0)
+
+caret::confusionMatrix(reference = as.factor(testProbs$obs), 
+                       data = as.factor(testProbs$predClass), 
+                       positive = "1")
+
+# ROC
+
+ggplot(testProbs, aes(d = obs, m = pred)) + 
+  geom_roc(n.cuts = 50, labels = FALSE) + 
+  style_roc(theme = theme_grey) +
+  geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') 
+
+auc(testProbs$obs, testProbs$pred)
+
+# CV
+
+ctrl <- trainControl(method = "cv", 
+                     number = 100, 
+                     savePredictions = TRUE)
+
+cvFit <- train(as.factor(inundation) ~ .,  data = flood %>% 
+                 as.data.frame() %>%
+                 dplyr::select(-geometry,-uniqueID), 
+               method="glm", family="binomial",
+               trControl = ctrl)
+
+cvFit
+
+ggplot(as.data.frame(cvFit$resample), aes(Accuracy)) + 
+  geom_histogram() +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x="Accuracy",
+       y="Count")
