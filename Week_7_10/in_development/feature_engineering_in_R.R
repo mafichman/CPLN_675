@@ -47,8 +47,10 @@ fishnet <-
 #hydrology <- hydrology %>%
 #  st_transform(crs = st_crs(boundary))
 
-raster::crs(flood) <- st_crs(fishnet)
-raster::crs(dem) <-st_crs(fishnet)
+# WHAT PROJECTION IS THIS STUFF SUPPOSED TO BE IN???
+
+raster::crs(flood) <- "+proj=tmerc +lat_0=0 +lon_0=-114 +k=0.9999 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
+raster::crs(dem) <- "+proj=tmerc +lat_0=0 +lon_0=-114 +k=0.9999 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
 
 # Reclassifly flood raster to 1 / 0
 # Floods are 2, standing water is 1
@@ -103,7 +105,7 @@ fishnet <- left_join(fishnet, water_dist)
 # https://rpubs.com/timothyfraser/mapping_raster_data_in_the_tidyverse
 # More ideas here - use the 'terra' package?
 
-#test <- extract(x = flood_rc, y = fishnet, fun= mean, na.rm = TRUE)
+#test <- raster::extract(x = flood_rc, y = fishnet, fun= mean, na.rm = TRUE)
 
 #test = terra::extract(x = dem, y = vect(fishnet_centroid %>% st_transform(crs(dem))), 
 #                      mean, na.rm = TRUE)
@@ -111,7 +113,20 @@ fishnet <- left_join(fishnet, water_dist)
 # Raster to polygon in R
 
 inundation_sf <- rasterToPolygons(flood_rc, fun=function(x){x==1}) %>%
-  st_as_sf(crs = st_crs(fishnet))
+  st_as_sf()
 
 # Join fishnet to inundation
 
+test_join <- st_join(fishnet_centroid, inundation_sf %>% 
+                       st_transform(st_crs(fishnet_centroid)))
+
+
+# Make a simple model and validate
+
+set.seed(3456)
+trainIndex <- createDataPartition(df$factor_data, p = .70,
+                                  list = FALSE,
+                                  times = 1)
+
+preserveTrain <- preserve[ trainIndex,]
+preserveTest  <- preserve[-trainIndex,]
