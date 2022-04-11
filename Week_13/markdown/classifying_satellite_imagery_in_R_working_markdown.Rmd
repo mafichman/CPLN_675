@@ -1,9 +1,11 @@
 ---
 title: "Classifying Satellite Data in R Tutorial"
-author: "Jenna Epstein"
+author: "Sydney Goldstein, Jenna Epstein"
 date: "4/14/2021"
 output: html_document
 ---
+
+This is code to accompany the Week 13 tutorial (index.html from this week's folder in the class repo) on NDVI and supervised classification in R, written by Sydney Goldstein, and adapted by Jenna Epstein.
 
 ## Setup
 ```{r setup, include=FALSE}
