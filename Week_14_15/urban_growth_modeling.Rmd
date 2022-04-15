@@ -23,7 +23,7 @@ library(kableExtra)
 library(tidycensus)
 library(tigris)
 library(FNN)
-library(QuantPsyc)
+#library(QuantPsyc) # JE Note: in R 4.1, QuantPsyc package not available. Do we need it?
 library(caret)
 library(yardstick)
 library(pscl)
@@ -109,7 +109,7 @@ rast <- function(inRaster) {
 
 # 2. Data Wrangling & Feature Engineering
 
-_JE Note: updated land cover change index download link_
+_JE Note: updated land cover change index download link._
 In this section a considerable amount of vector and raster data is wrangled together into a regression-ready dataset. The following datasets are used:
 
 2.2 - 2.3: Land cover data [downloaded](https://www.mrlc.gov/data/nlcd-land-cover-change-index-conus) from the Multi-Resolution Land Characteristics Consortium’s National Land Cover Database (NLCD) includes annual land cover and land cover change raster data for the entire country. These data are sampled to a 4,000 by 4,000 ft^2 fishnet, which will be used for . 2.4: Population data is downloaded from the U.S. Census and joined to the fishnet by distributing Census Tract population totals proportionally to each grid cell. 2.5: Highway vectors are downloaded from Texas State open data website and used to wrangle highway proximity features. 2.6: The land cover change data is used to engineer spatial lag features. 2.7: County polygons are downloaded using the `tigris` package. 2.8: Each feature is wrangled into a final dataset.
@@ -129,12 +129,13 @@ Several raster layers have been provided for this analysis. The working director
 
 Note that `lc_change` is projected as `NAD 1983 StatePlane Texas South FIPS 4205 Feet`. More info here. The original land cover raster is at a 30 meter by 30 meter resolution. The rasters provided are ultimately resampled up to 4000 feet by 4000 feet. The Houston metro area is quite large at roughly 10,000 square meters (`st_area(houstonMSA) * 3.58701e-8`). The original 30 by 30 meter data has nearly 58 million grid cells. A vector fishnet dataset of this size would be too computationally intensive. By resampling we gain some computational efficiency but loose some accuracy. Nevertheless, this approach works well for educational purposes.
 
+_JE Note: Will upload a geojson of the houston_MSA shapefile and replace first part of code below to read in the new file_
 ```{r}
 houstonMSA <- 
-  st_read("houston_MSA.shp") %>%
-  st_transform(102741)
+  st_read("data/UGB_Chapter_data/houston_MSA.shp") %>%
+  st_transform('ESRI:102741') # JE Note: added 'ESRI:' in front of projection
 
-lc_change = raster("resam4k.tif")
+lc_change = raster("data/UGB_Chapter_data/resam4k.tif")
 
 ggplot() +
   geom_sf(data=houstonMSA) +
@@ -177,7 +178,7 @@ ggplot() +
   mapTheme()
 ```
 
-Next, the fishnet is created at 4000 by 4000 foot resolution and subset it to the Houston MSA with st_intersection. The vector fishnet is then plotted. Note that this plot takes a bit of time to render because there are more than 18,000 polygons.
+Next, the fishnet is created at 4000 by 4000 foot resolution and subset it to the Houston MSA with `st_intersection`. The vector fishnet is then plotted. Note that this plot takes a bit of time to render because there are more than 18,000 polygons.
 
 ```{r}
 houstonMSA_fishnet <- 
@@ -227,7 +228,7 @@ ggplot() +
 It is reasonable to hypothesize that the propensity of new development is a function of existing land cover categories. In this section we identify these other land cover categories from 2001 and integrate each with the fishnet.
 
 ```{r}
-lc_2001 <- raster("lc_2001_4k.tif")
+lc_2001 <- raster("data/UGB_Chapter_data/lc_2001_4k.tif")
 
 ggplot() +
   geom_sf(data=houstonMSA) +
@@ -265,7 +266,7 @@ names(otherUndeveloped) <- "otherUndeveloped"
 names(water) <- "water"
 ```
 
-Next, each raster is aggregated to the fishnet by way of a function called `aggregateRaster`. Here, the process used above to To do this a function is created below that loops through a list of rasters, converts the ith raster to points, filters only points that have value of `1` (ie. is the ith land cover type), and then aggregates to the fishnet.
+Next, each raster is aggregated to the fishnet by way of a function called `aggregateRaster`. Here, the process used above to To do this a function is created below that loops through a list of rasters, converts the _ith_ raster to points, filters only points that have value of `1` (ie. is the _ith_ land cover type), and then aggregates to the fishnet.
 
 Here is the function.
 
@@ -330,7 +331,7 @@ Population and population change is obviously an critical demand-side component 
 
 Recall, you will need a census API key to download the census data which must be input with `census_api_key`. First data is pulled for 2000 and reprojected.
 
-_JE Note: Don't use get_decennial - replace with get_acs. Will create a code vingette for this later._
+_JE Note: Don't use get_decennial - replace with get_acs. Will create a code vignette for this later. Will need to use na API key, though._
 
 ```{r}
 houstonPop00 <- 
@@ -383,6 +384,8 @@ A spatial join would be inappropriate as it would assign the same population val
 The Census data `houstonPop`, has a different spatial extent than `houstonMSA_fishnet`. Most notably, there are no vectors where water is present. To maintain the needed 18,025 grid cells units `(nrow(houstonMSA_fishnet))`, a a unique id is created, `fishnetID`. Then the area weighted interpolation is performed on `population` for the 2000 and 2010 layers. Finally, the results are joined back (`left_join`) to `houstonMSA_fishnet`. This approach maintains a consistent spatial extent.
 
 It would be helpful for you to spend some time running through each code block line by line. Areal weighted interpolation is a really strong spatial analysis skill to have. You can do this in ArcGIS but there is not automated approach.
+
+_JE Note: Getting an error that there is a problem with Group.1 in the second block of code in the chunk below. Not sure where Group.1 is created earlier, but it doesn't look like it's in these data frames now. Will try to troubleshoot - I think it's that there isn't an index column present after interpolating, so there isn't a matching field to join by._
 
 ```{r}
 houstonMSA_fishnet <-
@@ -441,6 +444,7 @@ Accessibility is a key determinant of development potential particularly in a sp
 First highway vectors are downloaded from the Texas State open data website in `geojson` format; projected and subset to the subset using `st_intersection`. Below, new development is mapped with the highway overlay.
 
 _JE Note: Hardcode this endpoint to github. Will need to edit text since we are not grabbing directly from open data site anymore (instead from github)_
+
 ```{r}
 houstonHighways <-
   read_sf("https://opendata.arcgis.com/datasets/8b2f979d4ef24388a6a893019322e71c_0.geojson") %>%
