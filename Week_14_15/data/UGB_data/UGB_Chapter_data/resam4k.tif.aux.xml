@@ -1,0 +1,30 @@
+<PAMDataset>
+  <Metadata>
+    <MDI key="DataType">Generic</MDI>
+  </Metadata>
+  <Metadata domain="Esri">
+    <MDI key="PyramidResamplingType">NEAREST</MDI>
+  </Metadata>
+  <PAMRasterBand band="1">
+    <Histograms>
+      <HistItem>
+        <HistMin>-0.5</HistMin>
+        <HistMax>127.5</HistMax>
+        <BucketCount>128</BucketCount>
+        <IncludeOutOfRange>1</IncludeOutOfRange>
+        <Approximate>0</Approximate>
+        <HistCounts>16276|0|0|0|0|0|0|0|0|0|0|30|0|0|0|0|0|0|0|0|0|148|144|263|100|0|0|0|0|0|0|58|0|0|0|0|0|0|0|0|0|1|68|11|0|0|0|0|0|0|0|0|166|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|126|0|0|0|0|0|0|0|0|0|15|12|0|0|0|0|0|0|0|32|0|0|0|0|49|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|92</HistCounts>
+      </HistItem>
+    </Histograms>
+    <Metadata>
+      <MDI key="RepresentationType">THEMATIC</MDI>
+      <MDI key="STATISTICS_COVARIANCES">215.0142094730402</MDI>
+      <MDI key="STATISTICS_MAXIMUM">127</MDI>
+      <MDI key="STATISTICS_MEAN">3.3664373827525</MDI>
+      <MDI key="STATISTICS_MINIMUM">0</MDI>
+      <MDI key="STATISTICS_SKIPFACTORX">1</MDI>
+      <MDI key="STATISTICS_SKIPFACTORY">1</MDI>
+      <MDI key="STATISTICS_STDDEV">14.663362829619</MDI>
+    </Metadata>
+  </PAMRasterBand>
+</PAMDataset>
