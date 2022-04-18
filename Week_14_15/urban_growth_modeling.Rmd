@@ -1,7 +1,11 @@
 ---
-title: "Urban Growth Modeling"
-author: "Ken Steif, Ph.D"
-output: html_document
+title: "CPLN 675 - Urban Growth Modeling, 2022"
+author: "Ken Steif, Michael Fichman, Jenna Epstein"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_download: true
 ---
 
 ```{r setup, include=FALSE}
@@ -10,13 +14,20 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 # 1. Introduction
 
-Annotations and supplemental code by Jenna Epstein and Michael Fichman.
+_This markdown is an updated version of a module written by Ken Steif in 2019. It has been updated to keep it aligned with current packages and the data sources have been updated for the course github. The original text is still used here, but alterations, annotations and supplemental code by Michael Fichman and Jenna Epstein are throughout._
+
+_This workflow will form the backbone of your fifth and final assignment for this class. You will build a growth model based on a binary logistic regression that predicts the probability of land cover change at a raster cell level over a specified interval as a function of a) Existing land cover, b) The location of infrastructure and c) Demographic and economic spatial variables._
+
+_While we have used logistic regression to model spatial phenomena like flooding before, this workflow is different in that we wrangle raster data in R rather than doing it in ArcGIS. You will not be asked to understand the code in full detail, but rather, you should understand what it does operationally, and think about how you can plug in new data from a different time window, in a different geographic context._
+
 
 # 1.2. Setup
 
 Below we load the libraries needed for the analysis as well as a `mapTheme` and `plotTheme`. A set of palette colors are also specified.
 
-```{r}
+_MF Note: This chunk differs from the original markdown in a few ways. First, the library `igraph` is now neeed. Second, the `mapTheme` and `plotTheme` calls are altered to reflect the default styles we have been using this semester._
+
+```{r load_packages, warning = FALSE, message = FALSE}
 library(tidyverse)
 library(sf)
 library(raster)
@@ -35,45 +46,40 @@ library(pROC)
 library(grid)
 library(gridExtra)
 library(viridis)
+library(igraph)
 
-mapTheme <- function(base_size = 12) {
-  theme(
-    text = element_text( color = "black"),
-    plot.title = element_text(size = 14,colour = "black"),
-    plot.subtitle=element_text(face="italic"),
-    plot.caption=element_text(hjust=0),
-    axis.ticks = element_blank(),
-    panel.background = element_blank(),axis.title = element_blank(),
-    axis.text = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    panel.grid.minor = element_blank(),
-    panel.border = element_rect(colour = "black", fill=NA, size=2)
-  )
-}
+plotTheme <- theme(
+  plot.title =element_text(size=12),
+  plot.subtitle = element_text(size=8),
+  plot.caption = element_text(size = 6),
+  axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+  axis.text.y = element_text(size = 10),
+  axis.title.y = element_text(size = 10),
+  # Set the entire chart region to blank
+  panel.background=element_blank(),
+  plot.background=element_blank(),
+  #panel.border=element_rect(colour="#F0F0F0"),
+  # Format the grid
+  panel.grid.major=element_line(colour="#D0D0D0",size=.75),
+  axis.ticks=element_blank())
 
-plotTheme <- function(base_size = 12) {
-  theme(
-    text = element_text( color = "black"),
-    plot.title = element_text(size = 14,colour = "black"),
-    plot.subtitle = element_text(face="italic"),
-    plot.caption = element_text(hjust=0),
-    axis.ticks = element_blank(),
-    panel.background = element_blank(),
-    panel.grid.major = element_line("grey80", size = 0.1),
-    panel.grid.minor = element_blank(),
-    panel.border = element_rect(colour = "black", fill=NA, size=2),
-    strip.background = element_rect(fill = "grey80", color = "white"),
-    strip.text = element_text(size=12),
-    axis.title = element_text(size=12),
-    axis.text = element_text(size=10),
-    plot.background = element_blank(),
-    legend.background = element_blank(),
-    legend.title = element_text(colour = "black", face = "italic"),
-    legend.text = element_text(colour = "black", face = "italic"),
-    strip.text.x = element_text(size = 14)
-  )
-}
+mapTheme <- theme(plot.title =element_text(size=12),
+                  plot.subtitle = element_text(size=8),
+                  plot.caption = element_text(size = 6),
+                  axis.line=element_blank(),
+                  axis.text.x=element_blank(),
+                  axis.text.y=element_blank(),
+                  axis.ticks=element_blank(),
+                  axis.title.x=element_blank(),
+                  axis.title.y=element_blank(),
+                  panel.background=element_blank(),
+                  panel.border=element_blank(),
+                  panel.grid.major=element_line(colour = 'transparent'),
+                  panel.grid.minor=element_blank(),
+                  legend.direction = "vertical", 
+                  legend.position = "right",
+                  plot.margin = margin(1, 1, 1, 1, 'cm'),
+                  legend.key.height = unit(1, "cm"), legend.key.width = unit(0.2, "cm"))
 
 palette2 <- c("#41b6c4","#253494")
 palette4 <- c("#a1dab4","#41b6c4","#2c7fb8","#253494")
@@ -111,7 +117,7 @@ rast <- function(inRaster) {
 
 # 2. Data Wrangling & Feature Engineering
 
-_JE Note: updated land cover change index download link._
+_JE Note: Land cover data link has been updated._
 In this section a considerable amount of vector and raster data is wrangled together into a regression-ready dataset. The following datasets are used:
 
 2.2 - 2.3: Land cover data [downloaded](https://www.mrlc.gov/data/nlcd-land-cover-change-index-conus) from the Multi-Resolution Land Characteristics Consortium’s National Land Cover Database (NLCD) includes annual land cover and land cover change raster data for the entire country. These data are sampled to a 4,000 by 4,000 ft^2 fishnet, which will be used for . 2.4: Population data is downloaded from the U.S. Census and joined to the fishnet by distributing Census Tract population totals proportionally to each grid cell. 2.5: Highway vectors are downloaded from Texas State open data website and used to wrangle highway proximity features. 2.6: The land cover change data is used to engineer spatial lag features. 2.7: County polygons are downloaded using the `tigris` package. 2.8: Each feature is wrangled into a final dataset.
@@ -131,7 +137,6 @@ Several raster layers have been provided for this analysis. The working director
 
 Note that `lc_change` is projected as `NAD 1983 StatePlane Texas South FIPS 4205 Feet`. More info here. The original land cover raster is at a 30 meter by 30 meter resolution. The rasters provided are ultimately resampled up to 4000 feet by 4000 feet. The Houston metro area is quite large at roughly 10,000 square meters (`st_area(houstonMSA) * 3.58701e-8`). The original 30 by 30 meter data has nearly 58 million grid cells. A vector fishnet dataset of this size would be too computationally intensive. By resampling we gain some computational efficiency but loose some accuracy. Nevertheless, this approach works well for educational purposes.
 
-_JE Note: Will upload a geojson of the houston_MSA shapefile and replace first part of code below to read in the new file_
 ```{r}
 houstonMSA <- 
   st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/data/UGB_Chapter_data/houston_MSA.geojson") %>%
@@ -145,7 +150,7 @@ ggplot() +
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(direction = -1, discrete=TRUE, name ="Land Cover\nChange") +
   labs(title = "Land Cover Change") +
-  mapTheme()
+  mapTheme
 ```
 
 Next, we reclassify the raster such that all the developed grid cell values receive a value of 1 and all other values receive a value of 0. This is done using a reclassify matrix. The matrix reads row by row. Row 1 says any grid cell ranging from 0 to 12 takes a value of 0; 13 or greater through 24, a value of 1; and all other values take 0.
@@ -177,7 +182,7 @@ ggplot() +
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(discrete=TRUE, name ="Land Cover\nChange") + 
   labs(title="Development land use change") +
-  mapTheme()
+  mapTheme
 ```
 
 Next, the fishnet is created at 4000 by 4000 foot resolution and subset it to the Houston MSA with `st_intersection`. The vector fishnet is then plotted. Note that this plot takes a bit of time to render because there are more than 18,000 polygons.
@@ -193,7 +198,7 @@ houstonMSA_fishnet <-
 ggplot() +
   geom_sf(data=houstonMSA_fishnet) +
   labs(title="Fishnet, 4000 foot resolution") +
-  mapTheme()
+  mapTheme
 ```
 
 Then the raster is converted to points, which makes its joining to the vector fishnet a bit faster. Now to extract the raster values into the fishnet. There is a function in the `raster` package called `RasterToPolygon` but it is quite slow.
@@ -221,7 +226,7 @@ ggplot() +
                       labels=c("No Change","New Development"),
                       name = "") +
   labs(title = "Land cover development change", subtitle = "As fishnet centroids") +
-  mapTheme()
+  mapTheme
 ```
 
 
@@ -238,7 +243,7 @@ ggplot() +
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(discrete=TRUE, name ="") +
   labs(title = "Land Cover, 2001") +
-  mapTheme()
+  mapTheme
 ```
 
 The table below shows the approach taken to recoded existing land cover codes into the categories used in our analysis. In the code block below new rasters are generated and `names` are applied. Naming ensures that when the raster is integrated with the fishnet, the column reflects the appropriate raster.
@@ -324,7 +329,7 @@ aggregatedRasters %>%
                         name = "") +
     labs(title = "Land cover types, 2001",
          subtitle = "As fishnet centroids") +
-   mapTheme()
+   mapTheme
 ```
 
 ## 2.4 Census data
@@ -333,9 +338,7 @@ Population and population change is obviously an critical demand-side component 
 
 Recall, you will need a census API key to download the census data which must be input with `census_api_key`. First data is pulled for 2000 and reprojected.
 
-_JE Note: Don't use get_decennial - replace with get_acs. Will create a code vignette for this later. Will need to use an API key, though._
-
-_MF Note: Look at the materials from week 5 (Intro to SF and Tidyverse) and the Intro to R for Planners text._
+_MF Note: In your assignment, you will be using a different timeframe, and therefore you will use ACS data rather than decennial census data. Look at the materials from week 5 (Intro to SF and Tidyverse) and the Intro to R for Planners text to see how `get_acs` can be used to replace `get_decennial` in your workflow._
 
 ```{r}
 houstonPop00 <- 
@@ -370,7 +373,7 @@ ggplot() +
                     labels=quintileBreaks(houstonPop00,"pop_2000"),
                    name="Quintile\nBreaks") +
   labs(title="Population, Houston MSA: 2000") +
-  mapTheme(),
+  mapTheme,
 
 ggplot() +
   geom_sf(data = houstonPop10, aes(fill=factor(ntile(pop_2010,5))), colour=NA) +
@@ -378,7 +381,7 @@ ggplot() +
                     labels=quintileBreaks(houstonPop10,"pop_2010"),
                    name="Quintile\nBreaks") +
   labs(title="Population, Houston MSA: 2010") +
-  mapTheme(), ncol=2)
+  mapTheme, ncol=2)
 ```
 
 Now to reconcile tract boundaries and fishnet grid cells. I’d like you to pay particular attention to this process.
@@ -389,7 +392,7 @@ The Census data `houstonPop`, has a different spatial extent than `houstonMSA_fi
 
 It would be helpful for you to spend some time running through each code block line by line. Areal weighted interpolation is a really strong spatial analysis skill to have. You can do this in ArcGIS but there is not automated approach.
 
-_JE Note: Getting an error that there is a problem with Group.1 in the second block of code in the chunk below. Not sure where Group.1 is created earlier, but it doesn't look like it's in these data frames now. Will try to troubleshoot - I think it's that there isn't an index column present after interpolating, so there isn't a matching field to join by._
+_MF Note: This code chunk has notable differences from the original markdown. Most notably - the `rownames_to_column` function has been inserted into the dplyr chain as a way to assign  out the fishnet cell ID from the houstonMSA_fishnet to the interpolated data. This allows it to be joined to the fishnet by it's unique ID. The `st_interpolate_aw` function removes the unique ID._
 
 ```{r}
 houstonMSA_fishnet <-
@@ -399,16 +402,22 @@ houstonMSA_fishnet <-
   dplyr::select(fishnetID)
 
 fishnetPopulation00 <-
-  st_interpolate_aw(houstonPop00["pop_2000"],houstonMSA_fishnet, extensive=TRUE) %>%
+  st_interpolate_aw(houstonPop00["pop_2000"], houstonMSA_fishnet, extensive=TRUE) %>%
   as.data.frame(.) %>%
-  left_join(houstonMSA_fishnet, ., by=c("fishnetID"='Group.1')) %>% 
+  rownames_to_column(var = "fishnetID") %>%
+  left_join(houstonMSA_fishnet %>%
+              mutate(fishnetID = as.character(fishnetID)),
+            ., by=c("fishnetID"='fishnetID')) %>% 
   mutate(pop_2000 = replace_na(pop_2000,0)) %>%
   dplyr::select(pop_2000)
 
 fishnetPopulation10 <-
   st_interpolate_aw(houstonPop10["pop_2010"],houstonMSA_fishnet, extensive=TRUE) %>%
   as.data.frame(.) %>%
-  left_join(houstonMSA_fishnet, ., by=c("fishnetID"='Group.1')) %>% 
+  rownames_to_column(var = "fishnetID") %>%
+  left_join(houstonMSA_fishnet %>%
+              mutate(fishnetID = as.character(fishnetID)),
+            ., by=c("fishnetID"='fishnetID')) %>% 
   mutate(pop_2010 = replace_na(pop_2010,0)) %>%
   dplyr::select(pop_2010)
 
@@ -429,7 +438,7 @@ ggplot() +
                    name="Quintile\nBreaks") +
   labs(title="Population, Houston MSA: 2010",
        subtitle="Represented as tracts; Boundaries omitted") +
-  mapTheme(),
+  mapTheme,
 
 ggplot() +
   geom_sf(data=fishnetPopulation, aes(fill=factor(ntile(pop_2010,5))),colour=NA) +
@@ -438,7 +447,7 @@ ggplot() +
                    name="Quintile\nBreaks") +
   labs(title="Population, Houston MSA: 2010",
        subtitle="Represented as fishnet gridcells; Boundaries omitted") +
-  mapTheme(), ncol=2)
+  mapTheme, ncol=2)
 ```
 
 ## 2.5 Highway distance
@@ -447,11 +456,11 @@ Accessibility is a key determinant of development potential particularly in a sp
 
 First highway vectors are downloaded from the Texas State open data website in `geojson` format; projected and subset to the subset using `st_intersection`. Below, new development is mapped with the highway overlay.
 
-_JE Note: Hardcode this endpoint to github. Will need to edit text since we are not grabbing directly from open data site anymore (instead from github)_
+_MF Note: A notable change from the original markdown - these data have been hard-coded to a file endpoint. The original data referenced in the code can be found [here](https://opendata.arcgis.com/datasets/8b2f979d4ef24388a6a893019322e71c_0.geojson)_
 
 ```{r}
 houstonHighways <-
-  read_sf("https://opendata.arcgis.com/datasets/8b2f979d4ef24388a6a893019322e71c_0.geojson") %>%
+  st_read("https://github.com/mafichman/CPLN_675/raw/main/Week_14_15/data/UGB_Chapter_data/houstonHighways.geojson") %>%
   st_transform(st_crs(houstonMSA)) %>%
   st_intersection(houstonMSA)
 
@@ -463,7 +472,7 @@ ggplot() +
                       labels=c("No Change","New Development")) +
   labs(title = "New Development and Highways",
        subtitle = "As fishnet centroids") +
-  mapTheme()
+  mapTheme
 ```
 
 Below, is some great r-based raster skills. The distance from each grid cell to its nearest highway segment is measured.
@@ -503,7 +512,7 @@ ggplot() +
   geom_sf(data=houstonHighways, colour = "red") +
   labs(title = "Distance to Highways",
        subtitle = "As fishnet centroids; Highways visualized in red") +
-  mapTheme()
+  mapTheme
 ```
 
 ## 2.6 The spatial lag of development
@@ -568,7 +577,7 @@ ggplot() +
                      name="Quintile\nBreaks") +
   labs(title = "Spatial lag to 2001 development",
        subtitle = "As fishnet centroids") +
-  mapTheme()
+  mapTheme
 ```
 
 ## 2.7 MSA Counties
@@ -591,7 +600,7 @@ studyAreaCounties <-
 ggplot() +
   geom_sf(data=studyAreaCounties) +
   labs(title = "Study area counties") +
-  mapTheme()
+  mapTheme
 ```
 
 ## 2.8 Create the final dataset
@@ -628,7 +637,7 @@ dat %>%
                       labels=c("No Change","New Development"),
                       name="") +
     labs(title="New development as a function of the countinuous variables") +
-    plotTheme() 
+    plotTheme 
 ```
 
 Next, the same visualization is created for the population related variables. How does this plot inform which features should be included in the model?
@@ -644,7 +653,7 @@ dat %>%
                       labels=c("No Change","New Development"),
                       name="") +
     labs(title="New development as a function of factor variables") +
-    plotTheme()
+    plotTheme
 ```
 
 Next, a table of land cover conversion between 2001 and 2011 is created. The table suggests for instance, that 1% offarmland regionally was converted to development between 2001 and 2010. This indicator should be interpreted in the context of the scale changes we imposed on the data by moving from a 30ft by 30ft raster to a 4000ft by 4000ft fishnet. This is the same reason why the table suggests `developed` area was then “developed”.
@@ -721,7 +730,7 @@ map_dfc(modelList, function(x)pR2(get(x)))[4,] %>%
   ggplot(aes(Model,McFadden)) +
     geom_bar(stat="identity") +
     labs(title= "McFadden R-Squared by Model") +
-    plotTheme()
+    plotTheme
 ```
 
 Next, a data frame is created that includes columns for the observed development change, `lc_change`, and one that includes predicted probabilities for `Model6`. This data frame is then used as an input to a density plot visualizing the distribution of predicted probabilities by observed class. Only a small number of predicted probabilities are greater than or equal to 50% `(nrow(filter(testSetProbs, probs >= .50)) / nrow(datTest))`. This makes good sense, given how rare of an event development is in our dataset. Ultimately, in order to judge our model with a confusion matrix, a smaller development classification threshold must be employed.
@@ -737,7 +746,7 @@ ggplot(testSetProbs, aes(probs)) +
                     labels=c("No Change","New Development")) +
   labs(title = "Histogram of test set predicted probabilities",
        x="Predicted Probabilities",y="Density") +
-  plotTheme()
+  plotTheme
 ```
 
 ## 4.3 Accuracy
@@ -790,7 +799,8 @@ ggplot() +
   facet_wrap(~Variable) +
   scale_colour_manual(values = palette2, labels=c("No Change","New Development"),
                       name="") +
-  labs(title="Development predictions - Low threshold") + mapTheme()
+  labs(title="Development predictions - Low threshold") + 
+  mapTheme
 ```
 
 To provide a bit more insight, the code block below produces both true positives (Sensitivity) and true negatives (Specificity) for each grid cell by threshold type. Notice how the spatial pattern of Sensitivity for both thresholds is relatively consistent, but the 5% threshold misses most the study area with respect to Specificity.
@@ -815,7 +825,7 @@ ggplot(data=ConfusionMatrix.metrics) +
   facet_wrap(~Variable) +
   scale_colour_manual(values = palette2, labels=c("Correct","Incorrect"),
                        name="") +
-  labs(title="Development predictions - Low threshold") + mapTheme()
+  labs(title="Development predictions - Low threshold") + mapTheme
 ```
 
 ## 4.4 Generalizability
@@ -915,6 +925,8 @@ dat <-
 
 Now to update population change. A new data frame, `countyPopulation_2020` is created which includes 2010 population counts and 2020 projections for each county in the study area. Population is plotted by year and by county. Houston’s Harris County is projected to see the greatest population gains by far. Anecdotally, we know that much of Harris County is already developed, which suggests its development scenario will involve more ‘infill’ development then sprawl.
 
+_MF Note: This chart has been altered from a stacked bar plot to a paired bar plot._
+
 ```{r}
 countyPopulation_2020 <- 
   data.frame(
@@ -932,14 +944,14 @@ countyPopulation_2020 <-
 countyPopulation_2020 %>%
   gather(Variable,Value, -NAME) %>%
   ggplot(aes(reorder(NAME,-Value),Value)) +
-  geom_bar(aes(fill=Variable), stat = "identity") +
+  geom_bar(aes(fill=Variable), stat = "identity", position = "dodge") +
   scale_fill_manual(values = palette2,
                     labels=c("2020","2010"),
                     name="Population") +
   labs(title="Population Change by county: 2010 - 2020",
        x="County", y="Population") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  plotTheme()
+  plotTheme
 ```
 
 ## 5.2 Predicting development demand
@@ -967,9 +979,9 @@ dat_infill %>%
   scale_colour_manual(values = palette5,
                     labels=substr(quintileBreaks(dat_infill,"predict_2020.infill"),1,4),
                     name="Quintile\nBreaks") +
-  geom_sf(data=studyAreaCounties, fill=NA, colour="black", size=1.5) +
+  geom_sf(data=studyAreaCounties, fill=NA, colour="black", size=1) +
   labs(title= "Development Demand in 2020: Predicted Probabilities") +
-  mapTheme()
+  mapTheme
 ```
 
 # 6. Comparing predicted development demand & environmental sensitivity
@@ -989,7 +1001,7 @@ The third metric warrants some further discussion. In the context of leapfrog de
 To begin, the 2011 Land Cover data is read in and reclassified.
 
 ```{r}
-lc_2011 <- raster("lc_2011_4k.tif")
+lc_2011 <- raster("data/UGB_Chapter_data/lc_2011_4k.tif")
 
 developed11 <- lc_2011 == 21 | lc_2011 == 22 | lc_2011 == 23 | lc_2011 == 24
 forest11 <- lc_2011 == 41 | lc_2011 == 42 | lc_2011 == 43 
@@ -1014,7 +1026,7 @@ ggplot() +
   facet_wrap(~label) +
   scale_fill_viridis(discrete=TRUE, name ="") +
   labs(title = "Land Cover, 2001 & 2011a") +
-  mapTheme() + theme(legend.position = "none")
+  mapTheme + theme(legend.position = "none")
 ```
 
 Next, each raster is aggregated to the fishnet using the `aggregateRaster` function and 2011 land cover types are mapped.
@@ -1044,7 +1056,7 @@ dat2 %>%
                         name = "") +
     labs(title = "Land cover types, 2011",
          subtitle = "As fishnet centroids") +
-   mapTheme()
+   mapTheme
 ```
 
 ## 6.3 Sensitive land lover lost
@@ -1063,7 +1075,7 @@ ggplot() +
                       name = "") +
   labs(title = "Sensitive lands lost: 2001 - 2011",
        subtitle = "As fishnet centroids") +
-  mapTheme()
+  mapTheme
 ```
 
 ## 6.4 Landscape fragmentation
@@ -1072,14 +1084,15 @@ In this section, the `wetlands11` and `forest11` rasters are converted to contig
 
 ```{r}
 sensitiveRegions <- 
-  clump(wetlands11 + forest11) %>%
+  raster::clump(wetlands11 + forest11) %>%
   rasterToPolygons() %>%
   st_as_sf() %>%
-  group_by(clumps) %>% summarize() %>%
+  group_by(clumps) %>% 
+  summarize() %>%
     mutate(Acres = as.numeric(st_area(.) * 0.0000229568)) %>%
     filter(Acres > 3954)  %>%
   dplyr::select() %>%
-  rasterize(.,emptyRaster) 
+  raster::rasterize(.,emptyRaster) 
 sensitiveRegions[sensitiveRegions > 0] <- 1  
 names(sensitiveRegions) <- "sensitiveRegions"
 
@@ -1097,7 +1110,7 @@ ggplot() +
                       name="") +
   labs(title = "Sensitive regions",
        subtitle = "Continous areas of either wetlands or forests\ngreater than 1 acre") +
-  mapTheme()
+  mapTheme
 ```
 
 ## 6.5 Summarize by county
@@ -1153,7 +1166,7 @@ county_specific_metrics %>%
     geom_vline(xintercept = 2.5) + geom_vline(xintercept = 4.5) +
     scale_fill_manual(values=c("black","red","darkgreen")) +
     labs(title= "County Specific Allocation Metrics", subtitle= "As rates", x="Indicator", y="Rate") +
-    plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position="bottom")
+    plotTheme + theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position="bottom")
 ```
 
 # 7. Allocation
@@ -1186,7 +1199,7 @@ ggplot() +
   scale_fill_manual(values = palette5, name="Development\nDemand",
                     labels=substr(quintileBreaks(fortBend,"Development_Demand"),1,5)) +
   scale_colour_manual(values = c("black","red")) + 
-  labs(title = "Development Potential, 2020: Fort Bend") + mapTheme() +
+  labs(title = "Development Potential, 2020: Fort Bend") + mapTheme +
   guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)),
 
 ggplot() +
@@ -1198,7 +1211,7 @@ ggplot() +
   scale_fill_manual(values = palette5, name="Population\nChange",
                     labels=substr(quintileBreaks(fortBend,"pop_Change"),1,5)) +
   scale_colour_manual(values = c("black","red")) + 
-  labs(title = "Projected Population, 2020: Fort Bend") + mapTheme() +
+  labs(title = "Projected Population, 2020: Fort Bend") + mapTheme +
   guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)), ncol=2)
 ```
 
