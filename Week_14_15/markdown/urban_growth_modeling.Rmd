@@ -27,16 +27,16 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 </style>
 
-
-# 1. Introduction
-
-_This markdown is an updated version of a module written by Dr. Ken Steif in 2019. It has been updated to keep it aligned with current packages and the data sources have been updated for the course github. For the most part, the original text is still used here, but alterations, annotations and supplemental code are throughout._
+_This markdown is an updated version of a module written by Ken Steif in 2019. It's quite wordy - it was an unused chapter from his book. It has been updated to keep it aligned with current packages and the data sources have been updated for the course github. For the most part, the original text is still used here, but alterations, annotations and supplemental code are throughout._
 
 _This workflow will form the backbone of your fifth and final assignment for this class. You will build a growth model based on a binary logistic regression that predicts the probability of land cover change at a raster cell level over a specified interval as a function of a) Existing land cover, b) The location of infrastructure and c) Demographic and economic spatial variables._
 
 _While we have used logistic regression to model spatial phenomena like flooding before, this workflow is different in that we wrangle raster data in R rather than doing it in ArcGIS. You do not need to understand the code in full detail, but rather, you should understand what it does operationally, and think about how you can plug in new data from a different time window, in a different geographic context._
 
 _Michael Fichman, April, 2022_
+
+
+# 1. Introduction
 
 Regional urban development is an emergent outcome resulting from the autonomous decisions of many different agents, including developers, real estate buyers and tenants as well as planners and regulators. Each of these groups optimize for a different set of bottom lines. Developers seek profit, buying land at a low price, improving on that land, and selling it at a premium. Households and firms consume housing and commercial real estate balancing price constraints with access to amenities and customers, respectively.
 
