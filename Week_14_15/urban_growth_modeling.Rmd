@@ -30,11 +30,11 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 # 1. Introduction
 
-_This markdown is an updated version of a module written by Dr. Ken Steif in 2019. It has been updated to keep it aligned with current packages and the data sources have been updated for the course github. The original text is still used here, but alterations, annotations and supplemental code are throughout._
+_This markdown is an updated version of a module written by Dr. Ken Steif in 2019. It has been updated to keep it aligned with current packages and the data sources have been updated for the course github. For the most part, the original text is still used here, but alterations, annotations and supplemental code are throughout._
 
 _This workflow will form the backbone of your fifth and final assignment for this class. You will build a growth model based on a binary logistic regression that predicts the probability of land cover change at a raster cell level over a specified interval as a function of a) Existing land cover, b) The location of infrastructure and c) Demographic and economic spatial variables._
 
-_While we have used logistic regression to model spatial phenomena like flooding before, this workflow is different in that we wrangle raster data in R rather than doing it in ArcGIS. You will not be asked to understand the code in full detail, but rather, you should understand what it does operationally, and think about how you can plug in new data from a different time window, in a different geographic context._
+_While we have used logistic regression to model spatial phenomena like flooding before, this workflow is different in that we wrangle raster data in R rather than doing it in ArcGIS. You do not need to understand the code in full detail, but rather, you should understand what it does operationally, and think about how you can plug in new data from a different time window, in a different geographic context._
 
 _Michael Fichman, April, 2022_
 
@@ -152,9 +152,13 @@ The table below shows descriptions of each categorical land cover type in the la
 
  _JE Note: Land cover categories can be found [here](https://www.mrlc.gov/data/legends/national-land-cover-database-class-legend-and-description) is a link to the types and descriptions._ 
  
-Several raster layers have been provided for this analysis. The working directory is set; a vector study area layer, `houstonMSA` is read in; as well as the land cover change raster, `lc_change`, The raster is plot using `ggplot` and the `rast` function specified above.
+Several raster layers have been provided for this analysis: 
 
-Note that `lc_change` is projected as `NAD 1983 StatePlane Texas South FIPS 4205 Feet`. More info here. The original land cover raster is at a 30 meter by 30 meter resolution. The rasters provided are ultimately resampled up to 4000 feet by 4000 feet. The Houston metro area is quite large at roughly 10,000 square meters (`st_area(houstonMSA) * 3.58701e-8`). The original 30 by 30 meter data has nearly 58 million grid cells. A vector fishnet dataset of this size would be too computationally intensive. By resampling we gain some computational efficiency but loose some accuracy. Nevertheless, this approach works well for educational purposes.
+- We read in `houstonMSA` - this is the extent of the study area 
+
+- `lc_change` is a raster of land cover change - where there were conversions between one land cover and another on the time frame 2000-2010. We plot the raster using `ggplot` and the `rast` function specified above.
+
+Note that `lc_change` is projected as `NAD 1983 StatePlane Texas South FIPS 4205 Feet`. The original land cover raster is at a 30 meter by 30 meter resolution. The rasters provided are ultimately resampled up to 4000 feet by 4000 feet. The Houston metro area is quite large at roughly 10,000 square meters (`st_area(houstonMSA) * 3.58701e-8`). The original 30 by 30 meter data has nearly 58 million grid cells. A vector fishnet dataset of this size would be too computationally intensive. By resampling we gain some computational efficiency but loose some accuracy. Nevertheless, this approach works well for educational purposes.
 
 ```{r load_data, warning = FALSE, message = FALSE, results = "hide"}
 houstonMSA <- 
@@ -172,8 +176,9 @@ ggplot() +
   geom_raster(data=rast(lc_change) %>% na.omit %>% filter(value > 0), 
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(direction = -1, discrete=TRUE, name ="Land Cover\nChange") +
-  labs(title = "Land Cover Change") +
-  mapTheme
+  labs(title = "Land Cover Change - 2000-2010") +
+  mapTheme +
+  theme(legend.direction="horizontal")
 ```
 
 Next, we reclassify the raster such that all the developed grid cell values receive a value of 1 and all other values receive a value of 0. This is done using a reclassify matrix. The matrix reads row by row. Row 1 says any grid cell ranging from 0 to 12 takes a value of 0; 13 or greater through 24, a value of 1; and all other values take 0.
@@ -270,7 +275,8 @@ ggplot() +
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(discrete=TRUE, name ="") +
   labs(title = "Land Cover, 2001") +
-  mapTheme
+  mapTheme +
+  theme(legend.direction="horizontal")
 ```
 
 The table below shows the approach taken to recoded existing land cover codes into the categories used in our analysis. In the code block below new rasters are generated and `names` are applied. Naming ensures that when the raster is integrated with the fishnet, the column reflects the appropriate raster.
@@ -393,7 +399,7 @@ houstonPop10 <-
 Both years census data are then plotted.
 
 <div class="superbigimage">
-```{r, warning = FALSE, message = FALSE, fig.height= 6, fig.width= 8}
+```{r, warning = FALSE, message = FALSE, fig.height= 8, fig.width= 11}
 grid.arrange(
 ggplot() +
   geom_sf(data = houstonPop00, aes(fill=factor(ntile(pop_2000,5))), colour=NA) +
@@ -459,7 +465,7 @@ fishnetPopulation <-
 For comparison purposes, both the 2010 census tract geometries and the population weighted grid cells are plotted.
 
 <div class="superbigimage">
-```{r, warning = FALSE, message = FALSE, fig.height = 6, fig.width= 8}
+```{r, warning = FALSE, message = FALSE, fig.height = 8, fig.width= 11}
 grid.arrange(
 ggplot() +
   geom_sf(data=houstonPop10, aes(fill=factor(ntile(pop_2010,5))),colour=NA) +
@@ -826,7 +832,11 @@ predsForMap <-
     dplyr::select(lc_change,Threshold_5_Pct,Threshold_17_Pct) %>%
     gather(Variable,Value, -geometry) %>%
     st_cast("POLYGON")
+```
 
+
+<div class="superbigimage">
+```{r, warning = FALSE, message= FALSE, fig.height = 6, fig.width= 8}
 ggplot() +
   geom_point(data=predsForMap, aes(x=xyC(predsForMap)[,1], y=xyC(predsForMap)[,2], colour=Value)) +
   facet_wrap(~Variable) +
@@ -835,6 +845,7 @@ ggplot() +
   labs(title="Development predictions - Low threshold") + 
   mapTheme
 ```
+</div>
 
 To provide a bit more insight, the code block below produces both true positives (Sensitivity) and true negatives (Specificity) for each grid cell by threshold type. Notice how the spatial pattern of Sensitivity for both thresholds is relatively consistent, but the 5% threshold misses most the study area with respect to Specificity.
 
@@ -851,7 +862,10 @@ ConfusionMatrix.metrics <-
     dplyr::select(., starts_with("True")) %>%
     gather(Variable, Value, -geometry) %>%
     st_cast("POLYGON") 
+```
 
+<div class="superbigimage">
+```{r, warning = FALSE, message = FALSE, fig.height= 8, fig.width= 8 }
 ggplot(data=ConfusionMatrix.metrics) +
   geom_point(aes(x=xyC(ConfusionMatrix.metrics)[,1], 
                  y=xyC(ConfusionMatrix.metrics)[,2], colour = as.factor(Value))) +
@@ -860,6 +874,7 @@ ggplot(data=ConfusionMatrix.metrics) +
                        name="") +
   labs(title="Development predictions - Low threshold") + mapTheme
 ```
+</div>
 
 ## 4.4 Generalizability
 
@@ -1095,7 +1110,7 @@ dat2 %>%
 ## 6.3 Sensitive land lover lost
 Below an indicator `sensitive_lost` is created indicating grid cells that were either forest or wetlands in 2001 but were no longer so in 2011. The output layer, `sensitive_land_lost`, gives a sense for how development in the recent past has effected the natural environment.
 
-```{r, warning = FALSE, message = FALSE}
+```{r, warning = FALSE, message = FALSE, fig.height = 6, fig.width= 6}
 dat2 <-
   dat2 %>%
    mutate(sensitive_lost11 = ifelse(forest == 1 & forest11 == 0 |
@@ -1115,7 +1130,7 @@ ggplot() +
 
 In this section, the `wetlands11` and `forest11` rasters are converted to contiguous `sensitive_regions` using the `raster::clump` function. This is equivalent to Region Group in ArcGIS. The raster clumps are then converted to vector `sf` layers; dissolved into unique regions; Acres are calculated; and the layers are converted back to raster to be extracted back to the fishnet with `aggregateRaster`. It is worth going through this code block line by line. Note that only `sensitive_regions` with areas greater than 1 acre are included.
 
-```{r, warning = FALSE, message = FALSE}
+```{r, warning = FALSE, message = FALSE, fig.height = 6, fig.width= 6}
 sensitiveRegions <- 
   raster::clump(wetlands11 + forest11) %>%
   rasterToPolygons() %>%
@@ -1210,7 +1225,7 @@ First, development demand is predicted for Fort Bend. Then a layer, `fortBend_la
 
 There are some clear opportunities for development in Fort Bend. Significant infill opportunities exist along the northeast boundary where population change is projected to be greatest. There is also a good deal of environmentally suitable land in the center of the county around a highway interchange. This would be ideal space for large footprint, suburban shopping.
 <div class="superbigimage">
-```{r, warning = FALSE, message = FALSE, fig.height= 6, fig.width= 8}
+```{r, warning = FALSE, message = FALSE, fig.height= 8, fig.width= 11}
 fortBend <-
   dat2 %>%
     mutate(Development_Demand = predict(Model6, dat2, type="response")) %>%
