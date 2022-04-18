@@ -456,9 +456,10 @@ fishnetPopulation <-
   mutate(pop_Change = pop_2010 - pop_2000)
 ```
 
-For comparison purposes, both the 2010 census tract geometries and the population weighted grid cells are plot.
+For comparison purposes, both the 2010 census tract geometries and the population weighted grid cells are plotted.
 
-```{r, warning = FALSE, message = FALSE}
+<div class="superbigimage">
+```{r, warning = FALSE, message = FALSE, fig.height = 6, fig.width= 8}
 grid.arrange(
 ggplot() +
   geom_sf(data=houstonPop10, aes(fill=factor(ntile(pop_2010,5))),colour=NA) +
@@ -478,6 +479,7 @@ ggplot() +
        subtitle="Represented as fishnet gridcells; Boundaries omitted") +
   mapTheme, ncol=2)
 ```
+</div>
 
 ## 2.5 Highway distance
 
@@ -494,7 +496,7 @@ houstonHighways <-
   st_intersection(houstonMSA)
 ```
 
-```{r plot_highway, warning = FALSE, message= FALSe}
+```{r plot_highway, warning = FALSE, message= FALSE}
 ggplot() +
   geom_point(data=fishnet, 
              aes(x=xyC(fishnet)[,1], y=xyC(fishnet)[,2],colour=lc_change),size=1.5) +
