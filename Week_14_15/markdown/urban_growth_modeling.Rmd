@@ -1,6 +1,6 @@
 ---
 title: "CPLN 675 - Urban Growth Modeling, 2022"
-author: "Ken Steif, 2019. Ed Michael Fichman & Jenna Epstein"
+author: "Ken Steif, 2019. Eds. Michael Fichman & Jenna Epstein"
 date: "2/21/2022"
 output:
   html_document:
@@ -37,6 +37,18 @@ _This workflow will form the backbone of your fifth and final assignment for thi
 _While we have used logistic regression to model spatial phenomena like flooding before, this workflow is different in that we wrangle raster data in R rather than doing it in ArcGIS. You do not need to understand the code in full detail, but rather, you should understand what it does operationally, and think about how you can plug in new data from a different time window, in a different geographic context._
 
 _Michael Fichman, April, 2022_
+
+Regional urban development is an emergent outcome resulting from the autonomous decisions of many different agents, including developers, real estate buyers and tenants as well as planners and regulators. Each of these groups optimize for a different set of bottom lines. Developers seek profit, buying land at a low price, improving on that land, and selling it at a premium. Households and firms consume housing and commercial real estate balancing price constraints with access to amenities and customers, respectively.
+
+Planners regulate development by trading-off economic growth with the mitigation of negative externalities toward the goal of economic and environmental sustainability. Houston, the focus of this chapter, is a case study in managing these trade-offs. A sprawling Metropolitan area larger than the state of New Jersey, Houston’s laissez-faire approach to planning was exploited in the wake of Hurricane Harvey which ultimately cost the region $125 billion. Out of concern for either safety, economic necessity or both, climate change is forcing cities like Houston to reconsider the role of land use planning.
+
+Land use planning that is both economically productive and sustainable requires both supply and demand-side insights. Specifically, the Planner must understand future demand for development and how that demand contrasts with the supply of environmentally sensitive land. The goal of this chapter is to model this interplay.
+
+The next section wrangles a host of datasets including, Land Cover and Land Cover Change from the USGS, Census demographics, and transportation. Spatial lag features are also engineered from the land cover change data hypothesizing that the time/space scale of development between 2000 and 2010 can help predict new development in 2020.
+
+Exploratory analysis is undertaken to investigate the relationship between development and the aforementioned features. Findings then motivate the estimation of a geospatial predictive model trained on new development between 2001 and 2011. Those dynamics are then harnessed to predict Development_Demand for 2020 - predictions interpreted as the probability of new development here. The goal is not to create the most accurate model, but to demonstrate the role for geospatial machine learning in the land use modeling process.
+
+Once predictions are validated for their accuracy and spatial generalizability, we evaluate their confluence with environmentally sensitive land in counties throughout the region, with particular emphasis on landscape fragmentation. The final section uses predictions to ‘allocate’ new development across to places where growth can have an economic impact without impeding sustainability goals.
 
 # 1.2. Setup
 
