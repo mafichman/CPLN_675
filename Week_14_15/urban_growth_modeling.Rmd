@@ -10,6 +10,8 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 # 1. Introduction
 
+Annotations and supplemental code by Jenna Epstein and Michael Fichman.
+
 # 1.2. Setup
 
 Below we load the libraries needed for the analysis as well as a `mapTheme` and `plotTheme`. A set of palette colors are also specified.
