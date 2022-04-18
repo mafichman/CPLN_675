@@ -134,7 +134,7 @@ Note that `lc_change` is projected as `NAD 1983 StatePlane Texas South FIPS 4205
 _JE Note: Will upload a geojson of the houston_MSA shapefile and replace first part of code below to read in the new file_
 ```{r}
 houstonMSA <- 
-  st_read("data/UGB_Chapter_data/houston_MSA.shp") %>%
+  st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/data/UGB_Chapter_data/houston_MSA.geojson") %>%
   st_transform('ESRI:102741') # JE Note: added 'ESRI:' in front of projection
 
 lc_change = raster("data/UGB_Chapter_data/resam4k.tif")
@@ -333,7 +333,9 @@ Population and population change is obviously an critical demand-side component 
 
 Recall, you will need a census API key to download the census data which must be input with `census_api_key`. First data is pulled for 2000 and reprojected.
 
-_JE Note: Don't use get_decennial - replace with get_acs. Will create a code vignette for this later. Will need to use na API key, though._
+_JE Note: Don't use get_decennial - replace with get_acs. Will create a code vignette for this later. Will need to use an API key, though._
+
+_MF Note: Look at the materials from week 5 (Intro to SF and Tidyverse) and the Intro to R for Planners text._
 
 ```{r}
 houstonPop00 <- 
@@ -358,7 +360,7 @@ houstonPop10 <-
   st_buffer(-1)
 ```
 
-Both years census data are then plot.
+Both years census data are then plotted.
 
 ```{r}
 grid.arrange(
