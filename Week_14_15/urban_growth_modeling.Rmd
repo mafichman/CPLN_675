@@ -1270,3 +1270,64 @@ For comparison purposes, this process is replicated for Montgomery County below.
 We stop short in actually allocating land to development. While the model is well suited for understanding sprawl-style development, it is not useful for understanding how new demand might be absorbed by upzoning and densification of existing development. It would not be wise to allocate the entire projected population to undeveloped land. Instead, we’d prefer a more nuanced understanding of how local land use laws might play a role. At this stage in the analysis however, the Planner has all she needs to engage local stakeholders about future development decisions.
 
 ![Montgomery County](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/images/montgomery.png)
+# 8. Appendix
+
+_This is new material describing how you can determine land cover change from land cover rasters for two time periods_
+
+## 8.1. Calculating Land Cover Change
+
+For your assignment, you are going to need to get land cover data for two new time periods and figure out what areas developed in that interval (and then model it). In the workflow above, we used a the NLCD land cover change data set, but we could also have calculated our own version using the 2001 and 2011 data sets. You could do this in R, or ArcGIS for your assignment. Here is an abbreviated workflow for doing it in R using the data from this exercise:
+
+Reclassify 2001 and 2011 land cover databases to consist of 1 and 0 observations (e.g. 1 is the developed classes 13-24, 0 is everthing else). 
+
+```{r}
+reclassMatrix <- 
+  matrix(c(
+    0,12,0,
+    12,24,1,
+    24,Inf,0),
+  ncol=3, byrow=T)
+```
+
+```{r, warning = FALSE, message = FALSE}
+developed_2001 <- 
+  reclassify(lc_2001,reclassMatrix)
+
+developed_2011 <- 
+  reclassify(lc_2011,reclassMatrix)
+
+```
+
+Then do some map algebra to find the places where land cover changed. Let's see a quick histogram of the values - these should range from 0 (undeveloped in 2001, undeveloped in 2011), 1 (undeveloped in 2001, developed in 2011 (presuming nothing went from developed to undeveloped)), and 2 (developed in both periods). The 1's represent the change.
+
+```{r, warning = FALSE, message = FALSE}
+
+development_change <- developed_2001+developed_2011
+
+hist(development_change)
+```
+
+We can subsequently turn any of the 0's and 1's to NA
+
+```{r, warning = FALSE, message = FALSE}
+development_change[development_change != 1] <- NA
+
+ggplot() +
+  geom_sf(data=houstonMSA) +
+  geom_raster(data=rast(development_change) %>% na.omit, 
+              aes(x,y,fill=as.factor(value))) +
+  scale_fill_viridis(discrete=TRUE, name ="Land Cover\nChange") + 
+  labs(title="Development land use change") +
+  mapTheme
+```
+## 8.2. Downsampling Rasters
+
+Notice that we used 4000x4000 unit grid cells in this analysis to keep small grid cell sizes from crushing our laptops while we did this plotting and geo-processing. This is very simple to do in R - the below code takes our `development_change` raster and downsamples it by a factor of two using the `aggregate` function. You could load an original data set in at the beginning of your analysis and downsample it before you get started.
+
+```{r, warning = FALSE}
+
+development_change
+
+aggregate(development_change, fact = 2)
+
+```
