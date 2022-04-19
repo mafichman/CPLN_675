@@ -1044,7 +1044,7 @@ dat_infill %>%
   mapTheme
 ```
 
-# 6. Comparing predicted development demand & environmental sensitivity
+# 6. Comparing Predicted Development Demand & Environmental Sensitivity
 
 We now have a really strong indicator of development demand for 2020 to help guide local land use planning. Demand however, is only one side of the equation. It must balanced with the supply of environmentally sensitive land. Understanding the interplay between demand and supply is the first stage of the ‘Allocation’ phase, where Planners ultimately decide which land should be developed and which should not.
 
@@ -1174,7 +1174,7 @@ ggplot() +
   mapTheme
 ```
 
-## 6.5 Summarize by County
+## 6.5. Summarize by County
 
 The below `dplyr` statement takes as its input, `dat2`, which was created in Sections 6.2 - 6.4 and wrangles together a table of county-level, supply and demand metrics which can be used to analyze suitability by county.
 
@@ -1283,6 +1283,8 @@ For comparison purposes, this process is replicated for Montgomery County below.
 We stop short in actually allocating land to development. While the model is well suited for understanding sprawl-style development, it is not useful for understanding how new demand might be absorbed by upzoning and densification of existing development. It would not be wise to allocate the entire projected population to undeveloped land. Instead, we’d prefer a more nuanced understanding of how local land use laws might play a role. At this stage in the analysis however, the Planner has all she needs to engage local stakeholders about future development decisions.
 
 ![Montgomery County](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/images/montgomery.png)
+
+
 # 8. Appendix
 
 _This is new material describing how you can determine land cover change from land cover rasters for two time periods_
