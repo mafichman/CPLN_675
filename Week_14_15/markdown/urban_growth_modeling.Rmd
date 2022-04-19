@@ -188,7 +188,7 @@ ggplot() +
   geom_raster(data=rast(lc_change) %>% na.omit %>% filter(value > 0), 
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(direction = -1, discrete=TRUE, name ="Land Cover\nChange") +
-  labs(title = "Land Cover Change - 2000-2010") +
+  labs(title = "Land Cover Change, 2000-2010") +
   mapTheme +
   theme(legend.direction="horizontal")
 ```
@@ -221,7 +221,7 @@ ggplot() +
   geom_raster(data=rast(lc_change2) %>% na.omit, 
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(discrete=TRUE, name ="Land Cover\nChange") + 
-  labs(title="Development land use change") +
+  labs(title="Development Land Use Change") +
   mapTheme
 ```
 
@@ -241,7 +241,7 @@ The vector fishnet is then plotted. Note that this plot takes a bit of time to r
 ```{r, warning = FALSE, message= FALSE}
 ggplot() +
   geom_sf(data=houstonMSA_fishnet) +
-  labs(title="Fishnet, 4000 foot resolution") +
+  labs(title="Fishnet, 4000 Foot Resolution") +
   mapTheme
 ```
 
@@ -269,7 +269,7 @@ ggplot() +
   scale_colour_manual(values = palette2,
                       labels=c("No Change","New Development"),
                       name = "") +
-  labs(title = "Land cover development change", subtitle = "As fishnet centroids") +
+  labs(title = "Land Cover Development Change", subtitle = "As fishnet centroids") +
   mapTheme
 ```
 
@@ -372,7 +372,7 @@ aggregatedRasters %>%
     scale_colour_manual(values = palette2,
                         labels=c("Other","Land Cover"),
                         name = "") +
-    labs(title = "Land cover types, 2001",
+    labs(title = "Land Cover Types, 2001",
          subtitle = "As fishnet centroids") +
    mapTheme
 ```
@@ -566,7 +566,7 @@ ggplot() +
   mapTheme
 ```
 
-## 2.6. The spatial Lag of development
+## 2.6. The Spatial Lag of Development
 
 At the center of our model is a hypothesis that development demand must in part, be a function of the pattern of existing development. Development occurs where the market believes a higher and better use may bring an investment return. In the case of sprawling region like Houston, assuming the requisite demand, there is a clear return on investment for converting farmland to suburban housing.
 
@@ -626,7 +626,7 @@ ggplot() +
   scale_colour_manual(values = palette5,
                      labels=substr(quintileBreaks(fishnet,"lagDevelopment"),1,7),
                      name="Quintile\nBreaks") +
-  labs(title = "Spatial lag to 2001 development",
+  labs(title = "Spatial Lag to 2001 Development",
        subtitle = "As fishnet centroids") +
   mapTheme
 ```
@@ -650,7 +650,7 @@ studyAreaCounties <-
 ```{r, warning = FALSE, message = FALSE}
 ggplot() +
   geom_sf(data=studyAreaCounties) +
-  labs(title = "Study area counties") +
+  labs(title = "Study Area Counties") +
   mapTheme
 ```
 
@@ -687,7 +687,7 @@ dat %>%
     scale_fill_manual(values = palette2,
                       labels=c("No Change","New Development"),
                       name="") +
-    labs(title="New development as a function of the countinuous variables") +
+    labs(title="New Development as a Function of the Continuous Variables") +
     plotTheme 
 ```
 
@@ -703,7 +703,7 @@ dat %>%
     scale_fill_manual(values = palette2,
                       labels=c("No Change","New Development"),
                       name="") +
-    labs(title="New development as a function of factor variables") +
+    labs(title="New Development as a Function of Factor Variables") +
     plotTheme
 ```
 
@@ -854,7 +854,7 @@ ggplot() +
   facet_wrap(~Variable) +
   scale_colour_manual(values = palette2, labels=c("No Change","New Development"),
                       name="") +
-  labs(title="Development predictions - Low threshold") + 
+  labs(title="Development Predictions - Low Threshold") + 
   mapTheme
 ```
 </div>
@@ -884,7 +884,7 @@ ggplot(data=ConfusionMatrix.metrics) +
   facet_wrap(~Variable) +
   scale_colour_manual(values = palette2, labels=c("Correct","Incorrect"),
                        name="") +
-  labs(title="Development predictions - Low threshold") + mapTheme
+  labs(title="Development Predictions - Low Threshold") + mapTheme
 ```
 </div>
 
@@ -1008,7 +1008,7 @@ countyPopulation_2020 %>%
   scale_fill_manual(values = palette2,
                     labels=c("2020","2010"),
                     name="Population") +
-  labs(title="Population Change by county: 2010 - 2020",
+  labs(title="Population Change by County: 2010 - 2020",
        x="County", y="Population") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   plotTheme
@@ -1114,7 +1114,7 @@ dat2 %>%
     scale_colour_manual(values = palette2,
                         labels=c("Other","Land Cover"),
                         name = "") +
-    labs(title = "Land cover types, 2011",
+    labs(title = "Land Cover Types, 2011",
          subtitle = "As fishnet centroids") +
    mapTheme
 ```
