@@ -40,7 +40,7 @@ _Michael Fichman, April, 2022_
 
 Regional urban development is an emergent outcome resulting from the autonomous decisions of many different agents, including developers, real estate buyers and tenants as well as planners and regulators. Each of these groups optimize for a different set of bottom lines. Developers seek profit, buying land at a low price, improving on that land, and selling it at a premium. Households and firms consume housing and commercial real estate balancing price constraints with access to amenities and customers, respectively.
 
-Planners regulate development by trading-off economic growth with the mitigation of negative externalities toward the goal of economic and environmental sustainability. Houston, the focus of this chapter, is a case study in managing these trade-offs. A sprawling Metropolitan area larger than the state of New Jersey, Houston’s laissez-faire approach to planning was exploited in the wake of Hurricane Harvey which ultimately cost the region $125 billion. Out of concern for either safety, economic necessity or both, climate change is forcing cities like Houston to reconsider the role of land use planning.
+Planners regulate development by trading-off economic growth with the mitigation of negative externalities toward the goal of economic and environmental sustainability. Houston, the focus of this chapter, is a case study in managing these trade-offs. A sprawling Metropolitan area larger than the state of New Jersey, Houston’s _laissez-faire_ approach to planning was exploited in the wake of Hurricane Harvey which ultimately cost the region $125 billion. Out of concern for either safety, economic necessity or both, climate change is forcing cities like Houston to reconsider the role of land use planning.
 
 Land use planning that is both economically productive and sustainable requires both supply and demand-side insights. Specifically, the Planner must understand future demand for development and how that demand contrasts with the supply of environmentally sensitive land. The goal of this chapter is to model this interplay.
 
@@ -54,7 +54,7 @@ Once predictions are validated for their accuracy and spatial generalizability, 
 
 Below we load the libraries needed for the analysis as well as a `mapTheme` and `plotTheme`. A set of palette colors are also specified.
 
-_MF Note: This chunk differs from the original markdown in a few ways. First, the library `igraph` is now neeed. Second, the `mapTheme` and `plotTheme` calls are altered to reflect the default styles we have been using this semester._
+_MF Note: This chunk differs from the original markdown in a few ways. First, the library `igraph` is now needed. Second, the `mapTheme` and `plotTheme` calls are altered to reflect the default styles we have been using this semester._
 
 ```{r load_packages, message=FALSE, warning=FALSE, results = "hide"}
 library(tidyverse)
@@ -65,7 +65,7 @@ library(kableExtra)
 library(tidycensus)
 library(tigris)
 library(FNN)
-#library(QuantPsyc) # JE Note: in R 4.1, QuantPsyc package not available. Do we need it?
+#library(QuantPsyc) # JE Note: in R 4.1, QuantPsyc package not available.
 library(caret)
 library(yardstick)
 library(pscl)
@@ -156,13 +156,13 @@ It is important to remember that land cover is not ‘land use’. Typically, th
 
 Other raster features are created such as distance to highways, for instance. These rasters are then integrated with a vector fishnet. Additional feature engineering is performed on the vector-side providing a simple, but comprehensive snapshot of the development process in and around Houston between 2001 and 2011.
 
-## 2.2 Land cover change data
+## 2.2. Land Cover Change Data
 
 The dependent variable we wish to forecast is land cover change between 2001 and 2011. In this section, the land cover raster data is loaded, reclassified and integrated with a vector fishnet. As before, the fishnet will allow us to parametrize spatial relationships in a regression context.
 
 The table below shows descriptions of each categorical land cover type in the land cover data. Below, we will reclassify these data into more useful categories.
 
- _JE Note: Land cover categories can be found [here](https://www.mrlc.gov/data/legends/national-land-cover-database-class-legend-and-description) is a link to the types and descriptions._ 
+ _JE Note: Land cover categories can be found [here](https://www.mrlc.gov/data/legends/national-land-cover-database-class-legend-and-description) - will replace with markdown table at a later point._ 
  
 Several raster layers have been provided for this analysis: 
 
@@ -274,7 +274,7 @@ ggplot() +
 ```
 
 
-## 2.3 Land Cover in 2001
+## 2.3. Land Cover in 2001
 
 It is reasonable to hypothesize that the propensity of new development is a function of existing land cover categories. In this section we identify these other land cover categories from 2001 and integrate each with the fishnet.
 
@@ -318,7 +318,7 @@ names(otherUndeveloped) <- "otherUndeveloped"
 names(water) <- "water"
 ```
 
-Next, each raster is aggregated to the fishnet by way of a function called `aggregateRaster`. Here, the process used above to To do this a function is created below that loops through a list of rasters, converts the _ith_ raster to points, filters only points that have value of `1` (ie. is the _ith_ land cover type), and then aggregates to the fishnet.
+Next, each raster is aggregated to the fishnet by way of a function called `aggregateRaster`. Here, the process used above to To do this, a function is created below that loops through a list of rasters, converts the _ith_ raster to points, filters only points that have value of `1` (ie. is the _ith_ land cover type), and then aggregates to the fishnet.
 
 Here is the function.
 
@@ -377,7 +377,7 @@ aggregatedRasters %>%
    mapTheme
 ```
 
-## 2.4 Census data
+## 2.4. Census Data
 
 Population and population change is obviously an critical demand-side component of predicting `Development_Demand`. Census data for both 2000 and 2010 can be downloaded quickly using the `tidycensus` package. As illustrated below, these data are downloaded at a census tract geography and thus, an approach is needed to reconcile tracts and fishnet geometries. This is accomplished using a technique called areal weighted interpolation.
 
@@ -408,7 +408,7 @@ houstonPop10 <-
   st_buffer(-1)
 ```
 
-Both years census data are then plotted.
+Both years of census data are then plotted.
 
 <div class="superbigimage">
 ```{r, warning = FALSE, message = FALSE, fig.height= 8, fig.width= 11}
@@ -439,7 +439,7 @@ The Census data `houstonPop`, has a different spatial extent than `houstonMSA_fi
 
 It would be helpful for you to spend some time running through each code block line by line. Areal weighted interpolation is a really strong spatial analysis skill to have. You can do this in ArcGIS but there is not automated approach.
 
-_MF Note: This code chunk has notable differences from the original markdown. Most notably - the `rownames_to_column` function has been inserted into the dplyr chain as a way to assign  out the fishnet cell ID from the houstonMSA_fishnet to the interpolated data. This allows it to be joined to the fishnet by it's unique ID. The `st_interpolate_aw` function removes the unique ID._
+_MF Note: This code chunk has notable differences from the original markdown. Most notably - the `rownames_to_column` function has been inserted into the dplyr chain as a way to assign out the fishnet cell ID from the houstonMSA_fishnet to the interpolated data. This allows it to be joined to the fishnet by it's unique ID. The `st_interpolate_aw` function removes the unique ID._
 
 ```{r, warning = FALSE, message = FALSE}
 houstonMSA_fishnet <-
@@ -499,7 +499,7 @@ ggplot() +
 ```
 </div>
 
-## 2.5 Highway distance
+## 2.5. Highway Distance
 
 Accessibility is a key determinant of development potential particularly in a sprawling city like Houston. Accessibility features are engineered by measuring distance from each grid cell to its nearest highway.
 
@@ -526,7 +526,7 @@ ggplot() +
   mapTheme
 ```
 
-Below, is some great r-based raster skills. The distance from each grid cell to its nearest highway segment is measured.
+Below are some great r-based raster skills. The distance from each grid cell to its nearest highway segment is measured.
 
 First, the highway layer is converted to raster. This is done by creating an `emptyRaster` of `NA` grid cells at the same spatial extent as `lc_change`. Then, `highway_raster` is created by converting `houstonHighways` to `sp` form and then to applying `rasterize`. The raster is then converted to points with `rasterToPoints` and `st_as_sf`, then `aggregate` is used to calculate mean distance by grid cell.
 
@@ -566,7 +566,7 @@ ggplot() +
   mapTheme
 ```
 
-## 2.6 The spatial lag of development
+## 2.6. The spatial Lag of development
 
 At the center of our model is a hypothesis that development demand must in part, be a function of the pattern of existing development. Development occurs where the market believes a higher and better use may bring an investment return. In the case of sprawling region like Houston, assuming the requisite demand, there is a clear return on investment for converting farmland to suburban housing.
 
@@ -631,7 +631,7 @@ ggplot() +
   mapTheme
 ```
 
-## 2.7 MSA Counties
+## 2.7. MSA Counties
 
 The `tigris` package allows Texas county geometries to be downloaded. A spatial subset returns only the counties in the MSA. Note that the subset includes a negative 1000ft `st_buffer`. This is done because the spatial extent of `houstonMSA` intersects county boundaries that are actually outside of our study area. Buffering `houstonMSA` slightly limits the intersection range to only those counties in the study area.
 
@@ -654,7 +654,7 @@ ggplot() +
   mapTheme
 ```
 
-## 2.8 Create the final dataset
+## 2.8. Create the Final Dataset
 
 The last step is to bring together all the disparate feature layers into a final dataset that can be used for analysis. The various fishnet layers are `cbind` together, needed features are extracted and the final fishnet, `dat` is then joined with `studyAreaCounties` to assign each grid cell to a county. `developed10` is created to designate those areas that have already been developed through 2010. Finally, any grid cell that has a `water` land cover designation is removed.
 
@@ -707,7 +707,7 @@ dat %>%
     plotTheme
 ```
 
-Next, a table of land cover conversion between 2001 and 2011 is created. The table suggests for instance, that 1% offarmland regionally was converted to development between 2001 and 2010. This indicator should be interpreted in the context of the scale changes we imposed on the data by moving from a 30ft by 30ft raster to a 4000ft by 4000ft fishnet. This is the same reason why the table suggests `developed` area was then “developed”.
+Next, a table of land cover conversion between 2001 and 2011 is created. The table suggests for instance, that 1% of farmland regionally was converted to development between 2001 and 2010. This indicator should be interpreted in the context of the scale changes we imposed on the data by moving from a 30ft by 30ft raster to a 4000ft by 4000ft fishnet. This is the same reason why the table suggests `developed` area was then “developed”.
 
 ```{r, warning = FALSE, message = FALSE}
 dat %>%
@@ -725,11 +725,11 @@ dat %>%
 
 # 4. Predicting for 2010
 
-In this section, six separate logistic regression models are estimated to predict development change between 2001 and 2011 - with each subsequent model more sophisticated then the last. To do so, the data is split into 50% training/test sets. Models are estimated on the training set, .
+In this section, six separate logistic regression models are estimated to predict development change between 2001 and 2011 - with each subsequent model more sophisticated then the last. To do so, the data is split into 50% training/test sets. Models are estimated on the training set.
 
 Normally, as in previous chapters, a results table row would be generated for each model describing the accuracy and generalizability of predictions for each specification. For brevity, a less sophisticated approach is taken here, judging each by the McFadden or “Psuedo” R Squared statistic on the test set. The model with the greatest goodness of fit is then used for the purposes of prediction.
 
-## 4.2 Modeling
+## 4.2. Modeling
 
 First, `dat` is split into training and test sets. Note how imbalanced the panel is with `table(datTrain$lc_change1)`.
 
@@ -800,7 +800,7 @@ ggplot(testSetProbs, aes(probs)) +
   plotTheme
 ```
 
-## 4.3 Accuracy
+## 4.3. Accuracy
 
 Now to pick a predicted probability threshold to classify an area as having new development. Recall, *Sensitivity* or the True Positive rate is the proportion of actual positives (1’s) that were predicted to be positive. For example, the Sensitivity in our model is the rate of developed areas actually predicted as such. *Specificity* or True Negative Rate is the proportion of actual negatives (0’s) that were predicted to be negatives. For example, the Specificity in our model is the rate of No Change areas that were correctly predicted as No change.
 
@@ -963,9 +963,9 @@ spatialCV_metrics %>%
   kable_styling(full_width = F)
 ```
 
-# 5. Predicting land cover demand for 2020
+# 5. Predicting Land Cover Demand for 2020
 
-At this point, a simple but useful model has been trained to predict urban development between 2001 and 2011 as a function of baseline features fromm 2001 including land cover, built environment and population. Next, we are going to updated our features to reflect a 2010 baseline. Having done so, predictions from our new model would then be fore 2020.
+At this point, a simple but useful model has been trained to predict urban development between 2001 and 2011 as a function of baseline features from 2001 including land cover, built environment and population. Next, we are going to updated our features to reflect a 2010 baseline. Having done so, predictions from our new model would then be fore 2020.
 
 Generalizability is always the concern when forecasting, and for this use case Planners must ask themselves whether the 2001-2011 Houston experience generalizes to the 2010-2020 Houston experience. In other words, have the macroeconomic real estate conditions changed dramatically between the two time periods? This is question with no definitive answer, but it useful to consider the exogenous factors that may differentiate today’s Houston from that of 2011. The big for instance is climate change, and the aftermath of Hurricane Harvey. In August of 2017 Harvey devastated large portions of this region causing $125 billion in damage. If the real estate market capitalized flood risk into devastated areas going forward, this would effectively change the nature of real estate demand in the region. Thus the pre-flood, 2011 experienced is no longer entirely relevant.
 
@@ -1014,7 +1014,7 @@ countyPopulation_2020 %>%
   plotTheme
 ```
 
-## 5.2 Predicting development demand
+## 5.2. Predicting Development Demand
 
 Next, the `countyPopulation_2020` table is joined to `dat` and `pop_change` in order to ‘distribute’ the new population across the study area. To do so, the the allocation of new population is weighted by a grid cell’s existing population (`pop_2020.infill`). 2010 population is subtracted from this figure to get `pop_Change`. Finally, `Model6` is used to predict for 2020 given the updated population change and lag development features.
 
@@ -1056,7 +1056,7 @@ For this analysis farmland and undeveloped land are be deemed `Suitable`, while 
 
 The third metric warrants some further discussion. In the context of leapfrog development, Section 2.6 discusses the concept of landscape fragmentation - the idea that discontinuous development across space carves out disjointed slivers of wilderness. This fragmentation reduces biodiversity particularly for species that need room to roam. Below, environmentally `sensitive_regions` are created to represent large areas of unfragmented natural resources. We then consider the total area of these clumps for each county.
 
-## 6.2 2011 Land Cover data
+## 6.2. 2011 Land Cover Data
 
 To begin, the 2011 Land Cover data is read in and reclassified.
 
@@ -1119,7 +1119,8 @@ dat2 %>%
    mapTheme
 ```
 
-## 6.3 Sensitive land lover lost
+## 6.3. Sensitive Land Cover Lost
+
 Below an indicator `sensitive_lost` is created indicating grid cells that were either forest or wetlands in 2001 but were no longer so in 2011. The output layer, `sensitive_land_lost`, gives a sense for how development in the recent past has effected the natural environment.
 
 ```{r, warning = FALSE, message = FALSE, fig.height = 6, fig.width= 6}
@@ -1138,7 +1139,7 @@ ggplot() +
   mapTheme
 ```
 
-## 6.4 Landscape fragmentation
+## 6.4 Landscape Fragmentation
 
 In this section, the `wetlands11` and `forest11` rasters are converted to contiguous `sensitive_regions` using the `raster::clump` function. This is equivalent to Region Group in ArcGIS. The raster clumps are then converted to vector `sf` layers; dissolved into unique regions; Acres are calculated; and the layers are converted back to raster to be extracted back to the fishnet with `aggregateRaster`. It is worth going through this code block line by line. Note that only `sensitive_regions` with areas greater than 1 acre are included.
 
@@ -1173,7 +1174,7 @@ ggplot() +
   mapTheme
 ```
 
-## 6.5 Summarize by county
+## 6.5 Summarize by County
 
 The below `dplyr` statement takes as its input, `dat2`, which was created in Sections 6.2 - 6.4 and wrangles together a table of county-level, supply and demand metrics which can be used to analyze suitability by county.
 
@@ -1290,7 +1291,7 @@ _This is new material describing how you can determine land cover change from la
 
 For your assignment, you are going to need to get land cover data for two new time periods and figure out what areas developed in that interval (and then model it). In the workflow above, we used a the NLCD land cover change data set, but we could also have calculated our own version using the 2001 and 2011 data sets. You could do this in R, or ArcGIS for your assignment. Here is an abbreviated workflow for doing it in R using the data from this exercise:
 
-Reclassify 2001 and 2011 land cover databases to consist of 1 and 0 observations (e.g. 1 is the developed classes 13-24, 0 is everthing else). 
+Reclassify 2001 and 2011 land cover databases to consist of 1 and 0 observations (e.g. 1 is the developed classes 13-24, 0 is everything else). 
 
 ```{r}
 reclassMatrix <- 
@@ -1332,6 +1333,7 @@ ggplot() +
   labs(title="Development land use change") +
   mapTheme
 ```
+
 ## 8.2. Downsampling Rasters
 
 Notice that we used 4000x4000 unit grid cells in this analysis to keep small grid cell sizes from crushing our laptops while we did this plotting and geo-processing. This is very simple to do in R - the below code takes our `development_change` raster and downsamples it by a factor of two using the `aggregate` function. You could load an original data set in at the beginning of your analysis and downsample it before you get started.
@@ -1341,5 +1343,63 @@ Notice that we used 4000x4000 unit grid cells in this analysis to keep small gri
 development_change
 
 aggregate(development_change, fact = 2)
+
+```
+
+## 8.3. Cropping Rasters
+Say you have rasters that you would like to manipulate in R instead of in ArcGIS. If you have data covering the study area, you can use this as the extent to which you would like to crop the data, and then use `mask` to clip the data to the exact boundaries.
+
+First, read in the resampled raster of land cover around Atlanta, Georgia from 2001 and then plot it.
+
+```{r message=FALSE, warning=FALSE}
+lc_atl_2001 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/data/atl_lc01_resamp_new.tif")
+
+plot(lc_atl_2001)
+```
+
+
+We will also read in Atlanta counties for the extent of the bounding box, and then `crop` the raster to the counties.
+
+```{r message=FALSE, warning=FALSE}
+atl_counties <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/data/Counties_Atlanta_Region.geojson") %>% st_transform("ESRI:102667") # ESRI 1983 state plane GA west
+
+lc_atl_2001_crop <- crop(lc_atl_2001, extent(atl_counties))
+
+plot(lc_atl_2001_crop)
+```
+
+
+Then, `mask` the raster using the Atlanta are counties. This is similar to the "clipping" process for vector data.
+
+```{r message=FALSE, warning=FALSE}
+lc_atl_2001_mask <- mask(lc_atl_2001_crop, atl_counties)
+plot(lc_atl_2001_mask)
+```
+
+
+## 8.4 Updated Census Data Calls
+
+In section 2.4, census data was pulled using the `get_decennial`; however, if you are using a different timeframe, you you will use data from the American Community Survey (ACS). You will replace `get_decennial` with `get_acs` in your project's workflow. The code chunk below shows how to use `get_acs` to obtain population data from the counties in the Houston MSA in 2019. Note that `get_acs` returns both an estimate (denoted with an "E") and a margin of error (denoted with an "M"). We use the `select` command in `dplyr` to only retain estimate version of the variable.
+
+
+```{r, warning = FALSE, message = FALSE, results = "hide"}
+# Specify which variable(s) you would like to grab. Here, only one (Total Population) is listed, but you could add more to the call.
+acs_vars <- c("B02001_001E")
+
+# Using "tract" as the geography and 2019 as the year, download data data for the Houston MSA counties listed.
+houstonPop19 <- get_acs(geography = "tract", 
+                        variables = acs_vars, 
+                        year = 2019,
+                        state = 48, 
+                        geometry = TRUE, 
+                        output = "wide",
+                        county=c("Harris COunty","San Jacinto","Montgomery","Liberty","Waller",
+                         "Austin","Chambers","Fort Bend","Brazoria","Galveston")) %>%
+                rename(pop2019 = B02001_001E) %>%
+                dplyr::select(-starts_with("B"))
+
+# Make sure to transform to the crs of the fishnet!
+houstonPop19 <- houstonPop19 %>%
+  st_transform(st_crs(houstonMSA_fishnet))
 
 ```
