@@ -1,7 +1,7 @@
 ---
 title: "CPLN 675: Landscape Fragmentation / Land Use Efficiency Calculations in R"
 author: "Instructor: Michael Fichman, University of Pennsylvania"
-date: "January, 2022"
+date: "January, 2023"
 output: 
   html_document:
     toc: true
@@ -119,7 +119,7 @@ dat_2001_2 <- dat_2001_2 %>%
   mutate(year = "2001")
 ```
 
-We can do the same for data frame `b`. Notice here, I will add the year column like I did to `a2` but within the sequence of piped commands.
+We can do the same for data frame `dat_2011`. Notice here, I will add the year column like I did to `dat_2001_2` but within the sequence of piped commands.
 
 ```{r create_var_b, echo=TRUE}
 dat_2011_2 <- dat_2011 %>%
@@ -316,3 +316,59 @@ ggplot() +
   mapTheme
 ```
 
+# 6 Group Workshop Prompts
+
+We will try to complete as many of the following workshop activities as time allows:
+
+## 6.1 Map Challenge
+
+Create a "facetted" map of fragmentation count by municipality. We will do this to answer the question "Did the spatial process of fragmentation change in Chester County between 2001 and 2011?"
+
+We will do this using the `facet_wrap` command in ggplot. You make a facetted plot using "long" data - a data set where each municiaplity has a row for year 2001 and 2011. Follow these general instructions and see if you can generate the plot:
+
+- `rbind` the `summarize2001` and `summarize2011` data sets together. To do this, you will have to make each each data set contain the same column names. 
+
+- First `select` the columns `year_01`, `MUNI_NAME_01` and `countPatch_01` from `summarize2001`, then `rename` the columns as `year` and `MUNI_NAME` and `countPatch`. Follow this syntax example
+
+```{r tidy_example, eval=FALSE}
+new_data_set <- old_data_set %>%
+  dplyr::select(column_a, column_b) %>%
+  rename(new_colname_a = old_colname_a,
+         new_colname_b = old_colname_b)
+```
+
+- Now create an `sf` object (spatial data) using a tabular join. Use a `left_join` to append the  `townsShapefile` to your data frame (see section 5.1). Call this new object `summarize_2001_sf`.
+
+- Do the same to data set `summarize_2011` - make the column names THE SAME as the 2001 data.
+
+- Now `rbind` the two data sets (`summarize_2001_sf` and `summarize_2011_sf`)together. Call this new data set `townsShapefile_long`
+
+- Create a facetted map by using the mapping templates in section 5.3. Your ggplot should consist of the following minimum ingredients: 1) a `ggplot` call, a `geom_sf` with the arguments `data = townsShapefile_long` and `aes(fill=countPatch)`, and a call of `facet_wrap(~year)`
+
+- If you want, you can dress the plot up using labels and a mapTheme.
+
+When you are done, your graphics should look something like the ones below. Download the .rmd file for today's exercise to see the underlying code - the way it's done might surprise you!
+
+```{r solution, echo=FALSE}
+townsShapefile_long <-
+  rbind(left_join(townsWithData, 
+                summarize2001 %>% 
+        dplyr::select(year_01, MUNI_NAME_01, countPatch_01) %>%
+        rename(year = year_01,
+               MUNI_NAME = MUNI_NAME_01,
+               countPatch = countPatch_01)),
+      left_join(townsWithData, 
+                summarize2011 %>% 
+        dplyr::select(year_11, MUNI_NAME_11, countPatch_11) %>%
+        rename(year = year_11,
+               MUNI_NAME = MUNI_NAME_11,
+               countPatch = countPatch_11)))
+
+ggplot() + 
+  geom_sf(data=townsShapefile_long, aes(fill=countPatch)) + 
+  coord_sf() +
+  scale_fill_gradientn(colors=ramp8, name = "n Patches") +
+  facet_wrap(~year)+
+  labs(title="Number of Undeveloped Land Fragments, Chester County, PA (2001-2011)") +
+  mapTheme
+```
