@@ -18,6 +18,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 blah blah
 
+Excellent tutorial for dealing with raster data in R
+
+https://www.emilyburchfield.org/courses/eds/rasters_in_r
+
 ## Libraries
 
 ```{r cars}
@@ -32,8 +36,8 @@ library(mapview)
  Load 2001 and 2011 Chesco Landcover Data
 
 ```{r load_data}
-cc01 <- raster("C:/Users/mfich/Documents/GitHub/CPLN_675/Week_2/data/cc01.tif")
-cc11 <- raster("C:/Users/mfich/Documents/GitHub/CPLN_675/Week_2/data/cc11.tif")
+cc01 <- raster("~/GitHub/CPLN_675/Week_2/data/R_Data/cc01.tif")
+cc11 <- raster("~/GitHub/CPLN_675/Week_2/data/R_Data/cc11.tif")
 ```
 ## Examine the data
 
@@ -87,7 +91,7 @@ cc11_rc <- reclassify(cc11,
 ## Load roads
 
 ```{r}
-roads <- st_read("C:/Users/mfich/Documents/GitHub/CPLN_675/Week_2/data/chesco_roads.geojson")
+roads <- st_read("~/GitHub/CPLN_675/Week_2/data/R_Data/chesco_roads.geojson")
 ```
 
 Go feature to raster
@@ -98,13 +102,14 @@ REMOVE THE SLICE WHEN THIS GOES LIVE
 
 ```{r}
 roads_raster <- rasterize(roads %>%
-                            slice(1:100) %>%
+                           # slice(1:100) %>%
                             mutate(road = 1) %>%
                             dplyr::select(road) %>%
                             as(., "Spatial"),
                           cc11)
 
-reclass_df <-c(1, 100, 1)
+reclass_df <-c(1, nrow(roads), 0,
+               NA, NA, 1)
                
 reclass_matrix <-  matrix(reclass_df, ncol = 3,
                 byrow = TRUE)
@@ -113,13 +118,26 @@ roads_rc <- reclassify(roads_raster,
                      reclass_matrix)
 ```
 
+
 ## Combine Roads with Reclassified Raster
 
+cc11_rc - developed == 0
+roads_rc - developed = 0
+
 ```{r}
-cc11_rc_roads <- cc11_rc + roads_raster
+cc11_rc_roads <- cc11_rc * roads_rc
+
+plot(cc11_rc_roads)
 ```
 
+## Crop the data by the Chesco shapefile
+
+Go feature to raster on the Chesco shapefile and then raster calculator to get rid of stuff outside the boundary
+
 ## Region Group
+
+
+
 
 OLD ROUTINE
 
