@@ -11,15 +11,15 @@ def calcCN(LandUse, SoilCode):
     if (LandUse == 1 and SoilCode == "A"):
         return 100
     elif (LandUse == 1 and SoilCode == "A/D"):
-        return 50
+        return 100
     elif (LandUse == 1 and SoilCode == "B"):
         return 100
     elif (LandUse == 1 and SoilCode == "B/D"):
-        return 50
+        return 100
     elif (LandUse == 1 and SoilCode == "C"):
         return 100
     elif (LandUse == 1 and SoilCode == "C/D"):
-        return 50
+        return 100
     elif (LandUse == 1 and SoilCode == "D"):
         return 100
     elif (LandUse == 2 and SoilCode == "A"):
