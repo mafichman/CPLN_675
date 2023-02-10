@@ -707,6 +707,10 @@ Use the fuction "st_write"
 
 You can also read in shapefiles with an `shp` file extension using `st_read`.
 
+# Bonus - Making an R Markdown
+
+Check out the button at the top right of this markdown - you can download the .rmd file and then look at the markdown code underneath. Can you add a code chunk and then "knit" your own Markdown?
+
 # Bonus - Spatial Data with mapview
 
 The `mapview` package is a handy tool for making interactive maps with `sf`.

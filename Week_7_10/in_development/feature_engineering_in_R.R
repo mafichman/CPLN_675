@@ -1,23 +1,19 @@
+# Load packages
+
 library(tidyverse)
 library(sf)
 library(raster)
-library(terra)
 library(sp)
 library(mapview)
 library(caret)
 library(plotROC)
 library(pROC)
 
-# Calgary hydrology
+# Load Calgary hydrology from their open data site
 
 hydrology <- st_read("https://data.calgary.ca/api/geospatial/5fk8-xqeu?method=export&format=GeoJSON")
 
-# Load inundation data, boundary
-
-temp <- tempfile()
-download.file("",temp)
-data <- (unz(temp, "midTermProject_Data/CALGIS_CITYBOUND_LIMIT/CALGIS_CITYBOUND_LIMIT.shp"))
-unlink(temp)
+# Load inundation data, boundary from class github
 
 url <-"https://github.com/mafichman/CPLN_675/raw/main/Week_7_10/data/midTermProject_Data.zip"
 
@@ -27,14 +23,13 @@ temp2 <- tempfile()
 download.file(url, temp)
 unzip(zipfile = temp, exdir = temp2)
 boundary <- st_read(file.path(temp2, "midTermProject_Data/CALGIS_CITYBOUND_LIMIT/CALGIS_CITYBOUND_LIMIT.shp"))
-#flood <- rast(file.path(temp2, "midTermProject_Data/inundation.ovr")) # terra
 flood <- raster(file.path(temp2, "midTermProject_Data/inundation")) # raster
-#dem <- rast(file.path(temp2, "midTermProject_Data/calgaryDEM.ovr")) # terra
 dem <- raster(file.path(temp2, "midTermProject_Data/calgaryDEM")) # raster
 
 unlink(c(temp, temp2))
 
-# Create Fishnet
+# Create Fishnet with a cellsize of 1000 sq meters to the extent of the 
+# Calgary Boundary
 
 fishnet <- 
   st_make_grid(boundary,
@@ -47,22 +42,20 @@ fishnet <-
 
 # Adjust projections
 
-#hydrology <- hydrology %>%
-#  st_transform(crs = st_crs(boundary))
-
-# WHAT PROJECTION IS THIS STUFF SUPPOSED TO BE IN???
+# If you want to adjust your projections using the raster package, you can do so like this - make sure you use the
+# long version of the projection name (you can find this at spatialreference.org)
 
 #raster::crs(flood) <- "+proj=tmerc +lat_0=0 +lon_0=-114 +k=0.9999 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
 #raster::crs(dem) <- "+proj=tmerc +lat_0=0 +lon_0=-114 +k=0.9999 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
 
-# Reclassifly flood raster to 1 / 0
+# Now Reclassifly flood raster to 1 / 0
 # Floods are 2, standing water is 1
-
-# If the raster package is used, this works:
 
 # More on reclassifying rasters here: https://www.earthdatascience.org/courses/earth-analytics/lidar-raster-data-r/classify-raster/
 
 plot(flood)
+
+mapview(flood)
 
 reclass_inundation_df <-c(0, 0, 0,
                1, 2, 1,
@@ -75,16 +68,6 @@ flood_rc <- reclassify(flood,
                        reclass_matrix_inundation)
 
 plot(flood_rc)
-
-# If you use terra, do this:
-
-#m <- c(0, 0, 0,
-#       1, 2, 1,
-#       2, 3, 0)
-
-#rclmat <- matrix(m, ncol=3, byrow=TRUE)
-
-#flood_rc <- classify(flood, rclmat, include.lowest=TRUE)
 
 #---- st_distance - fishnet centroids to hydrology
 
@@ -115,10 +98,16 @@ fishnet <- left_join(fishnet, water_dist)
 
 # Raster to polygon in R
 
+# One way to go from raster to polygon in R is to make the rasters into sf objects (cells)
+
 inundation_sf <- rasterToPolygons(flood_rc, fun=function(x){x==1}) %>%
   st_as_sf()
 
-# Join fishnet to inundation
+# To Join fishnet to inundation, here is one method you can use
+# If the fishnet centroid intersects with innundation area, the cell will be considered innundated
+# We are downsampling by a factor of 100 here (mainly because modeling 10 meter cells would take a while)
+# There are alternate methods to do this that might have less bias - like an area majority.
+# https://stackoverflow.com/questions/32278825/how-to-change-the-resolution-of-a-raster-layer-in-r
 
 fishnet <- st_join(fishnet_centroid, inundation_sf %>% 
                        st_transform(st_crs(fishnet_centroid))) %>%
@@ -154,9 +143,7 @@ plot(slope_rc)
 
 hist(slope_rc)
 
-# join slope to dem
-
-# alternative extract(r, sp, method='bilinear')
+# join slope to dem using same method as above
 
 slope_sf <- rasterToPolygons(slope_rc, fun=function(x){x==1}) %>%
   st_as_sf()
