@@ -33,7 +33,7 @@ unlink(c(temp, temp2))
 
 fishnet <- 
   st_make_grid(boundary,
-               cellsize = 1000, 
+               cellsize = 100, 
                square = TRUE) %>%
   .[boundary] %>%            # clips the grid to the boundary file
   st_sf() %>%
