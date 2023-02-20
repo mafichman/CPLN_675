@@ -1,6 +1,6 @@
 ---
 title: "CPLN 675: Interpolating Air Pollution Dynamics with Interpolation and Regression"
-author: "Ken Steif & Michael Fichman"
+author: "Michael Fichman"
 date: "2/19/2023"
 output:
   html_document:
@@ -16,6 +16,8 @@ options(scipen=999)
 library(knitr)
 ```
 
+
+***This markdown is based on material created cooperatively with the late Prof. Ken Steif.***
 
 # 1. Introduction
 
