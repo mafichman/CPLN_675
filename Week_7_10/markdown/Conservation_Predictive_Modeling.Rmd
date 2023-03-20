@@ -1,7 +1,7 @@
 ---
 title: "CPLN 675: Spatial Predictive Modeling for Classification"
-author: "Ken Steif & Michael Fichman"
-date: "2/25/2022"
+author: "Instructor - Michael Fichman"
+date: "3/20/2023"
 output:
   html_document:
     toc: true
@@ -22,6 +22,8 @@ library(knitr)
 Recall our site suitability exercise in Week 1 - we used our own spatial decision factors, or "weights" to impose a rule-based system for identifying land areas. We are going to learn an alternative approach, where we use a statistical model to algorithmically determine the weights and subsequent siting.
 
 This is a relatively simplified exercise - there are some detailed ways to "tune" models to make them more powerful and flexible - to introduce you to logistic regression as a tool for classification. You will be able to use this general workflow in your midterm project, when you will create your own features for a similar model.
+
+**This workflow was written in conjunction with the late Prof. Ken Steif, and has been updated since his passing in 2021.**
 
 ## 1.1. Learning objectives
 
@@ -308,7 +310,8 @@ testProbs <- data.frame(obs = as.numeric(preserveTest$preserve),
 ggplot(testProbs, aes(x = pred, fill=as.factor(obs))) + 
   geom_density() +
   facet_grid(obs ~ .) + 
-  xlab("Probability") + 
+  xlab("Probability") +
+  ylab("Frequency")+
   geom_vline(xintercept = .5) +
   scale_fill_manual(values = c("dark blue", "dark green"),
                       labels = c("Not Preserved","Preserved"),
@@ -377,11 +380,12 @@ Make sure that you update the regression to the model you specified above.
 ```{r k_fold, warning = FALSE, message = FALSE}
 ctrl <- trainControl(method = "cv", 
                      number = 100, 
+                     p = 0.7, 
                      savePredictions = TRUE)
 
 cvFit <- train(as.factor(preserve) ~ .,  data = preserve %>% 
                                                 as.data.frame() %>%
-                                                select(-geometry,-slope,-landCover, -Id), 
+                                                select(-geometry, -Id), 
                method="glm", family="binomial",
                trControl = ctrl)
 
