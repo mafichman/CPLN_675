@@ -1,7 +1,7 @@
 ---
-title: "CPLN 675 - Urban Growth Modeling, 2022"
+title: "CPLN 675 - Urban Growth Modeling, 2023"
 author: "Ken Steif, 2019. Eds. Michael Fichman & Jenna Epstein"
-date: "2/21/2022"
+date: "4/17/2023"
 output:
   html_document:
     toc: true
@@ -27,13 +27,17 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 </style>
 
-_This markdown is an updated version of a module written by Ken Steif in 2019. It's quite wordy - it was an unused chapter from his book. It has been updated to keep it aligned with current packages and the data sources have been updated for the course github. For the most part, the original text is still used here, but alterations, annotations and supplemental code are throughout._
+_This markdown is an updated version of a module written by Ken Steif in 2019. It was an unpublished chapter from his book Public Policy Analytics, and it is therefore very detailed. It has been updated to keep it aligned with current packages and the data sources have been updated for the course github. For the most part, the original text is still used here, out of respect for the original material and the author. However, alterations, annotations and supplemental code are throughout._
 
 _This workflow will form the backbone of your fifth and final assignment for this class. You will build a growth model based on a binary logistic regression that predicts the probability of land cover change at a raster cell level over a specified interval as a function of a) Existing land cover, b) The location of infrastructure and c) Demographic and economic spatial variables._
 
 _While we have used logistic regression to model spatial phenomena like flooding before, this workflow is different in that we wrangle raster data in R rather than doing it in ArcGIS. You do not need to understand the code in full detail, but rather, you should understand what it does operationally, and think about how you can plug in new data from a different time window, in a different geographic context._
 
-_Michael Fichman, April, 2022_
+_The appendices to this document add some additional code and alternative code blocks to what is in the chapter itself. You can use these to augment the workflow to run entirely in R and load, downsample and wrangle rasters._
+
+_Thanks very much to Jenna Epstein for helping to update and edit this material in 2022._
+
+_Michael Fichman, April, 2023_
 
 
 # 1. Introduction
@@ -251,6 +255,8 @@ Below, a slightly faster approach is develop that converts the raster to an `sf`
 
 To speed up the mapping process, fishnet polygons are converted to centroid points using the `xyC` function defined 
 
+_MF Note: The function `aggregate` is an alternative way to do a spatial join - similar to `st_intersection` or other `sf` package features._
+
 ```{r, warning = FALSE, message = FALSE}
 changePoints <-
   rasterToPoints(lc_change2) %>%
@@ -381,7 +387,18 @@ aggregatedRasters %>%
 
 Population and population change is obviously an critical demand-side component of predicting `Development_Demand`. Census data for both 2000 and 2010 can be downloaded quickly using the `tidycensus` package. As illustrated below, these data are downloaded at a census tract geography and thus, an approach is needed to reconcile tracts and fishnet geometries. This is accomplished using a technique called areal weighted interpolation.
 
-Recall, you will need a census API key to download the census data which must be input with `census_api_key`. First data is pulled for 2000 and reprojected.
+Recall, you will need a census API key to download the census data which must be input with `census_api_key`. 
+
+```{r load_key_hide, warning= FALSE, include=FALSE}
+census_key <- read.table("~/GitHub/census_key.txt", quote="\"", comment.char="")
+census_api_key(census_key[1] %>% as.character(), overwrite = TRUE)
+```
+
+```{r load_key, warning = FALSE, eval = FALSE}
+census_api_key("YOUR KEY GOES HERE", overwrite = TRUE)
+```
+
+First data is pulled for 2000 and reprojected.
 
 _MF Note: In your assignment, you will be using a different timeframe, and therefore you will use ACS data rather than decennial census data. Look at the materials from week 5 (Intro to SF and Tidyverse) and the Intro to R for Planners text to see how `get_acs` can be used to replace `get_decennial` in your workflow._
 

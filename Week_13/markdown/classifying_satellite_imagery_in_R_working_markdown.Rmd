@@ -146,8 +146,8 @@ ggplot() +
   labs(title = "NDVI for Calagary", 
        x = " ", 
        y = " ") +
-  scale_fill_gradient(high = "#CEE50E", 
-                      low = "#087F28",
+  scale_fill_gradient(high = "#087F28", 
+                      low = "#CEE50E",
                       name = "NDVI")
 
 ```
@@ -209,6 +209,10 @@ A + B + plot_layout(ncol = 2)
 ```{r}
 training_points <- as(training_points, 'Spatial')
 
+# If this code above fails, try this -
+
+#training_points <- as_Spatial(training_points)
+
 df <- raster::extract(image, training_points) %>%
   round()
 ```
@@ -253,10 +257,14 @@ profiles %>%
   gather() %>% 
   mutate(class = rep(c("clouds", "developed", "undeveloped", "water"), 11)) %>% 
   ggplot(data = ., aes(x = fct_relevel(as.factor(key),
-                                       levels = c("band1", "band2", "band3", "band4","band5",
-                                                  "band6", "band7", "band8", "band9", "band10",
-                                                  "band11")), y = value, 
-                           group=class, color = class)) +
+                                       levels = c("band1", "band2", "band3",
+                                                  "band4","band5",
+                                                  "band6", "band7", 
+                                                  "band8", "band9", "band10",
+                                                  "band11")), 
+                       y = value, 
+                           group=class, 
+                       color = class)) +
   geom_point(size = 2.5) +
   geom_line(lwd = 1.2) +
   scale_color_manual(values=c('cyan', 'burlywood', 'darkgreen', 'blue')) +
