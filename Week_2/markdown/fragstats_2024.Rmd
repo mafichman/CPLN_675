@@ -1,0 +1,368 @@
+---
+title: "CPLN 6750: Landscape Fragmentation / Land Use Efficiency Calculations in R"
+author: "Instructor: Michael Fichman, University of Pennsylvania"
+date: "January, 2024"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_download: true
+---
+
+```{r setup, include=FALSE,message = FALSE,cache=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=999)
+library(knitr)
+```
+
+# How to use this document
+
+This is an `R Markdown` document - it's an annotated script of data routines in R. You are going to use this file format to present data for your midterm and your final. Look at the button on the top right - it lets you download the `rmd` file that is behind this document. You can do that and run the code out of R Studio as an rmd -or- you can cut and paste these code into your R Studio console.
+
+This is an introductory look at how R and R Studio work, and a look at what code-based data analysis and GIS can do. Don't worry about understanding everything that's going on - this is the first of several opportunities to engage with code before you need to use it yourself for an assignment.
+
+# Learning objectives
+
+- See how some basic commands function in R that are used to load, examine, manipulate and visualize data.
+
+- Observe how R can be used to wrangle data using `dplyr` commands like `mutate` and `select`.
+
+- See how the `pipe` operator works to chain operations together.
+
+- Summarize some data using `dplyr` and the `summarize` command.
+
+- Observe the use of R as a GIS for mapping.
+
+# 1. Calculating land use fragmentation using R
+
+The script in the markdown is preceded by a series of raster processing routines in ArcGIS whereby land use rasters for the years 2001 and 2011 are reclassified into developed/not developed lands and grouped into undeveloped fragments. 
+
+Each of these fragments has its "isoperimetric quotient" calculated and is associated with its municipality.
+
+# 2. Loading libraries and data
+
+Load the `tidyverse` data wrangling and visualization packages, and the `sf` spatial features package. If you don't have these packages installed on your computer, use the `install.packages` command.
+
+```{r libraries_Data_Cleaning, message=FALSE, warning=FALSE, include=TRUE}
+library(tidyverse)
+library(sf)
+```
+
+Read in data for 2001 and 2011 land use data. This tutorial grabs the data from the class Github repo.
+
+If you have data on your machine, you will have to find the appropriate filepath for where these data are stored on your machine (e.g. "C//mycomputer/myfolder/myfile.txt").
+
+```{r read_data, message=FALSE, warning=FALSE, include=TRUE}
+
+# 2001 data
+dat_2001 <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/R_Data/2001.txt")
+
+# 2011 data
+dat_2011 <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/R_Data/2011.txt")
+```
+
+# 3. Explore and clean data
+
+## 3.1. Explore
+
+Let's look at our new data frames using some commands which ask about the nature or dimensions of our data.
+
+My personal favorite is `glimpse()` - it shows you most of what you need to know.
+
+Try to execute the code below in your console:
+
+```{r glimpse_data, echo=TRUE}
+glimpse(dat_2001)
+```
+
+## 3.2. Select relevant columns
+
+We will create two new dataframes which contain only the variables we need. We'll pull out only what we want - 
+
+- `GRIDCODE` (total not developed patches)
+
+-`AREA`
+
+-`perimeter`
+
+-`iso`
+
+- `MUNI_NAM` (town)
+
+First let's do this for our 2001 data.
+
+With the `tidyverse` and `dplyr`, you can use simple `select` command and subset the columns into a new dataframe - called `dat_2001_2` - by name.
+
+Notice we "pipe" the `select` command to dataframe `dat_2001` using the `%>%` operator (aka the pipe) which allows you to chain functions together. 
+
+In plain English, here we are saying "From dataframe `dat_2001`, select the following columns and call that data frame `dat_2001_2`"
+
+```{r create_dat_2001_2, echo=TRUE}
+dat_2001_2 <- dat_2001 %>%
+  select(gridcode, area, perimeter, iso, MUNI_NAME)
+```
+
+You can use the `glimpse` function to look at your new data frame.
+
+We want to be able to append 2001 and 2011 data together and summarize them by year. In order to do this, both data frames need to have the same variable names. We are going to have to create a year variable to differentiate our data once both data frames are appended. We do so for each using the same column name.
+
+I also want to create a column called `year` which indicates that these are my 2001 data. I'm going to put them together later and I'll need to know which data are which. I can add that data using the `mutate` command from `dplyr`. In plain English, the operation here is as follows - "To data frame `dat_2001_2`, mutate a new column called year and set it equal to the text (aka character) string "2001". Overwrite `dat_2001_2` with this new data frame".
+
+```{r create_year, echo=TRUE}
+dat_2001_2 <- dat_2001_2 %>%
+  mutate(year = "2001")
+```
+
+We can do the same for data frame `dat_2011`. Notice here, I will add the year column like I did to `dat_2001_2` but within the sequence of piped commands.
+
+```{r create_var_b, echo=TRUE}
+dat_2011_2 <- dat_2011 %>%
+  select(gridcode, area, perimeter, iso, MUNI_NAME) %>%
+  mutate(year = "2011")
+```
+
+We can use a "boolean expression to see if our names are the same, or we can use the function `setdiff` to figure out what might be different
+
+```{r variable_check, echo=TRUE}
+names(dat_2001_2) == names(dat_2011_2)
+setdiff(names(dat_2001_2), names(dat_2011_2))
+```
+
+Now we can append these data frames together by row using `rbind` ("row bind"). You can put two data frames together in this manner if they have congruent column names and types.
+
+```{r bind_years, echo=TRUE}
+data <- rbind(dat_2001_2, dat_2011_2)
+```
+
+Want to make sure this `rbind` went off without a hitch? Take a look at it with the `View()` command.
+
+# 4. Summarize Data
+
+Let's use some tidy functions to `summarize` our data by municipality and by year and then `filter` out any observations that are not in a municipality.
+
+Here we `group_by` year and municipality and summarize some patch statistics.
+
+```{r summarize, echo=TRUE, message = FALSE, warning = FALSE}
+summary <- data %>%
+  group_by(year, MUNI_NAME) %>%
+  summarize(countPatch = sum(gridcode),                      #count of unique patches
+            mean_Compactness = mean(iso),                    #mean 'roundness' of patch 
+            mean_Area = mean(area),                          #mean area of patch 
+            sum_Area = sum(area),                            #sum area of patch
+            sum_Perimter = sum(perimeter)) %>%
+  filter(MUNI_NAME != " ") %>%
+  as.data.frame()
+```
+
+Now that we have summarized by municipality and year, we can calculate change for each town. Ultimately we are going to create some "wide" data with columns corresponding to each year and rows corresponding to each municipality.
+
+What we have right now are "long" data - where each observation represents a year and a municipality. To go wide to long and vice versa, there are some sophisticated functions in `dplyr` but we will do this in a simple way to start.
+
+We need to split the data into 2001 and 2011 again and rename the columns.
+
+We start by selecting observations from `summary` where `year == "2001"` using the `filter` command.
+
+```{r filter_2000, echo=TRUE}
+summarize2001  <- summary %>% 
+  filter(year == "2001")
+```
+
+We do it again for 2011
+
+```{r filter_2011, echo=TRUE}
+summarize2011  <- summary %>% 
+  filter(year == "2011")
+```
+
+Are `summarize2001` and `summarize2011` the same length? e.g. the same number of towns?
+
+```{r summaries_same_length, echo=TRUE}
+length(summarize2001) == length(summarize2011) 
+```
+
+We rename variables the `colnames` fucntion so that the field names in each summary data frame have years attached to them. 
+
+```{r summary_colnames, echo=TRUE}
+summarize2001 <- summarize2001 %>%
+  rename(year_01 = year,
+         MUNI_NAME_01 = MUNI_NAME,
+         countPatch_01 = countPatch,
+         mean_Compactness_01 = mean_Compactness,
+         meanArea_01 = mean_Area,
+         sum_Area_01 = sum_Area,
+         sum_Perimter_01 = sum_Perimter)
+
+summarize2011 <- summarize2011 %>%
+  rename(year_11 = year,
+         MUNI_NAME_11 = MUNI_NAME,
+         countPatch_11 = countPatch,
+         mean_Compactness_11 = mean_Compactness,
+         meanArea_11 = mean_Area,
+         sum_Area_11 = sum_Area,
+         sum_Perimter_11 = sum_Perimter)
+```
+
+We use a series of tidy functions to bind the columns together from each summary data frame into one data frame using `cbind`. We use the `mutate` function from the `dplyr` package to create several new columns:
+
+`MUNI_NAME` - A single MUNI Name unique ID which corresponds to our ArcGIS data set
+`compactness_Change` - Compactness Change between 2001 and 2011, in percent 0-100
+`sumAreaChange` - Sum of area change between 2001 and 2011, in percent 0-100
+`numPatchChange` - Patch count change between 2001 and 2011, in percent 0-100
+
+```{r create_summarize2, echo=TRUE}
+summarize2 <- cbind(summarize2001, summarize2011) %>%
+              as.data.frame() %>%
+              mutate(MUNI_NAME = MUNI_NAME_01, # create one MUNI Name unique id
+                    compactness_Change = ((mean_Compactness_11 - mean_Compactness_01) / mean_Compactness_01) * 100,
+                    sumAreaChange = ((sum_Area_11 - sum_Area_01)/ sum_Area_01) *100, 
+                    numPatchChange = ((countPatch_11 - countPatch_01) / countPatch_01) * 100) 
+```
+
+# 5. Create Maps
+
+## 5.1 Import and join data
+
+Import the Chester County boundary geojson.
+
+```{r import_shp, echo=TRUE}
+townsShapefile <- read_sf("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/R_Data/Chester_MuniBoundaries.geojson")
+```
+
+Let's examine it - it's an `sf` object - like a data frame but with a geometry attached. Use the `View()` and `glimpse` commands to look at the tabular view of the data.
+
+You can also do a quick look at it using the base plotting function in R
+
+```{r plot_towns_shape, echo=TRUE}
+plot(townsShapefile)
+```
+
+Next we add our summary data `summarize2` to the spatial data with a tabular join by `MUNI_NAME`.
+
+This is a `left_join` where the `townsShapefile` is the left hand side and `summarize2` is on the right, meaning all the stuff on the left gets retained and joined only to elements of the right side that have a matching ID, in this case, `MUNI_NAME`.
+
+Notice the result has as many observations as we have towns in `townsShapefile`.
+
+```{r join_data_to_shp, echo=TRUE}
+townsWithData <- left_join(townsShapefile, summarize2, by = "MUNI_NAME")
+```
+
+## 5.2. Create graphic styles
+
+Before we map our data, we can create some graphic styles.
+
+First a color palette of hexidecimal color codes which we can feed to our symbology options.
+
+```{r color_ramp, echo=TRUE}
+ramp8 <- c("#050234","#2C0078","#7F00BF","#F600FF","#FF0DBE","#FF569F","#FF9BA8","#FFE8E4")
+```
+
+Then we can set up a set of styles for our maps in ggplot/sf. We can call these any time we want to style a map. You can create your own themes depending on your preferences.
+
+```{r mapTheme, echo=TRUE}
+mapTheme <- theme(
+    text = element_text( color = "black"),
+    plot.title = element_text(size = 14,colour = "black"),
+    plot.subtitle=element_text(face="italic"),
+    plot.caption=element_text(hjust=0),
+    axis.ticks = element_blank(),
+    panel.background = element_blank(),axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(colour = "black", fill=NA, size=2)
+  ) 
+```
+
+## 5.3 Mapping change
+
+First we can map the change in the total number of patches per town.
+
+```{r patches_by_town, echo=TRUE}
+ggplot() + 
+  geom_sf(data=townsWithData, aes(fill=numPatchChange)) + 
+  coord_sf() +
+  scale_fill_gradientn(colors=ramp8, name = "Percent\nChange") +
+  labs(title="Change in the number of undeveloped patches by town\nChester County (2001-2011)") +
+  mapTheme
+```  
+
+We can also map the change in the area of those patches by town.
+
+```{r patches_area_by_town, echo=TRUE} 
+ggplot() + 
+  geom_sf(data=townsWithData, aes(fill=sumAreaChange)) + 
+  coord_sf() +
+  scale_fill_gradientn(colors=ramp8, name = "Percent\nChange") +
+  labs(title="Change in the area of non-developed patches\nChester County (2001-2011)") +
+  mapTheme
+```
+
+Lastly we can map the change in compactness (isoperimetric quotient) during the span 2001-2011
+
+```{r iso_by_town, echo=TRUE} 
+ggplot() + 
+  geom_sf(data=townsWithData, aes(fill=compactness_Change)) + 
+  coord_sf() +
+  scale_fill_gradientn(colors=ramp8, name = "Percent\nChange") +
+  labs(title="Change in the undeveloped land fragmentation by town\nChester County (2001-2011)",
+          caption="Fragmentation defined by the 'Isoperimetric quotient' - The compactness of a given landscape patch\nrelative to the most compact shape (a circle) with the same perimter. The lower the quotient, the \nmore fragmented a shape is considered. Fragmentation is related to a \ndecrease in the hardiness of ecosystems") +
+  mapTheme
+```
+
+# 6 Group Workshop Prompts
+
+We will try to complete as many of the following workshop activities as time allows:
+
+## 6.1 Map Challenge
+
+Create a "facetted" map of fragmentation count by municipality. We will do this to answer the question "Did the spatial process of fragmentation change in Chester County between 2001 and 2011?"
+
+We will do this using the `facet_wrap` command in ggplot. You make a facetted plot using "long" data - a data set where each municiaplity has a row for year 2001 and 2011. Follow these general instructions and see if you can generate the plot:
+
+- `rbind` the `summarize2001` and `summarize2011` data sets together. To do this, you will have to make each each data set contain the same column names. 
+
+- First `select` the columns `year_01`, `MUNI_NAME_01` and `countPatch_01` from `summarize2001`, then `rename` the columns as `year` and `MUNI_NAME` and `countPatch`. Follow this syntax example
+
+```{r tidy_example, eval=FALSE}
+new_data_set <- old_data_set %>%
+  dplyr::select(column_a, column_b) %>%
+  rename(new_colname_a = old_colname_a,
+         new_colname_b = old_colname_b)
+```
+
+- Now create an `sf` object (spatial data) using a tabular join. Use a `left_join` to append the  `townsShapefile` to your data frame (see section 5.1). Call this new object `summarize_2001_sf`.
+
+- Do the same to data set `summarize_2011` - make the column names THE SAME as the 2001 data.
+
+- Now `rbind` the two data sets (`summarize_2001_sf` and `summarize_2011_sf`)together. Call this new data set `townsShapefile_long`
+
+- Create a facetted map by using the mapping templates in section 5.3. Your ggplot should consist of the following minimum ingredients: 1) a `ggplot` call, a `geom_sf` with the arguments `data = townsShapefile_long` and `aes(fill=countPatch)`, and a call of `facet_wrap(~year)`
+
+- If you want, you can dress the plot up using labels and a mapTheme.
+
+When you are done, your graphics should look something like the ones below. Download the .rmd file for today's exercise to see the underlying code - the way it's done might surprise you!
+
+```{r solution, echo=FALSE}
+townsShapefile_long <-
+  rbind(left_join(townsWithData, 
+                summarize2001 %>% 
+        dplyr::select(year_01, MUNI_NAME_01, countPatch_01) %>%
+        rename(year = year_01,
+               MUNI_NAME = MUNI_NAME_01,
+               countPatch = countPatch_01)),
+      left_join(townsWithData, 
+                summarize2011 %>% 
+        dplyr::select(year_11, MUNI_NAME_11, countPatch_11) %>%
+        rename(year = year_11,
+               MUNI_NAME = MUNI_NAME_11,
+               countPatch = countPatch_11)))
+
+ggplot() + 
+  geom_sf(data=townsShapefile_long, aes(fill=countPatch)) + 
+  coord_sf() +
+  scale_fill_gradientn(colors=ramp8, name = "n Patches") +
+  facet_wrap(~year)+
+  labs(title="Number of Undeveloped Land Fragments, Chester County, PA (2001-2011)") +
+  mapTheme
+```
