@@ -15,13 +15,13 @@ options(scipen=999)
 library(knitr)
 ```
 
-# How to use this document
+# 1.  How to use this document
 
 This is an `R Markdown` document - it's an annotated script of data routines in R. You are going to use this file format to present data for your midterm and your final. Look at the button on the top right - it lets you download the `rmd` file that is behind this document. You can do that and run the code out of R Studio as an rmd -or- you can cut and paste these code into your R Studio console.
 
 This is an introductory look at how R and R Studio work, and a look at what code-based data analysis and GIS can do. Don't worry about understanding everything that's going on - this is the first of several opportunities to engage with code before you need to use it yourself for an assignment.
 
-# Learning objectives
+# 2. Learning objectives
 
 - See how some basic commands function in R that are used to load, examine, manipulate and visualize data.
 
@@ -33,13 +33,53 @@ This is an introductory look at how R and R Studio work, and a look at what code
 
 - Observe the use of R as a GIS for mapping.
 
-# 1. Calculating land use fragmentation using R
+
+# 3. Data Preparation in ArcGIS
+
+Using ArcGIS reclassify 2001 and 2011 land cover rasters for the years 2001 and 2011 for Chester County, PA into "developed" and "not developed" categories and export contiguous chunks of undeveloped land as a vector shapefile. (The following routine is covered during a workshop in class - but is re-printed here for reproducibility.)
+
+Begin by [downloading data from the course Github repo](https://github.com/mafichman/CPLN_675/tree/main/Week_2/data/Arc_GIS_Data)
+
+1. Add the land cover rasters for 2001 and 2011 to the map and associate the .lyr file (provided in data folder) to both (if necessary).
+
+2. Reclassify such that ‘not developed’ = 1 and ‘developed’ = 0. Perform this reclassification for both rasters.
+
+3. Rasterize roads
+
+4. Reclassify the newly-rasterized roads to where ‘roads’ = NoData and ‘not roads’ = 1
+
+For the remaining steps - you will need to complete each step twice - once for each year of land cover data
+
+5. Combine reclassified roads with not developed raster
+
+6. Region Group (ensure that “link” is checked – this means that each region will retain their original raster value (developed or not developed)
+
+7. Convert the raster to polygon using ‘LINK’ as the value
+
+8. Export only the not urban polygons (e.g. fragments) into new shapefile
+
+9. Create new fields that contain area and perimeter
+
+10. Calculate isoperimetric quotient - name this field ‘iso’. Formula for calculating the field in ArcGIS is: `((4 * 3.14159265359) * !area! ) / !perimeter!**2`
+
+11. Spatial join polygons with Chester County municipalities
+
+12. Export features as table (we will us csv or txt in our exercise) – we will now summarize and map in R.
+
+
+# 4. Calculating land use fragmentation using R
 
 The script in the markdown is preceded by a series of raster processing routines in ArcGIS whereby land use rasters for the years 2001 and 2011 are reclassified into developed/not developed lands and grouped into undeveloped fragments. 
 
+In this script we do the following:
+
+- Load two vector objects into R - these objects represent Chester County land fragments in the years 2001 and 2011.
+
+- Combine these objects into one and summarize fragmentation statistics by municipality and year.
+
 Each of these fragments has its "isoperimetric quotient" calculated and is associated with its municipality.
 
-# 2. Loading libraries and data
+# 5. Loading libraries and data
 
 Load the `tidyverse` data wrangling and visualization packages, and the `sf` spatial features package. If you don't have these packages installed on your computer, use the `install.packages` command.
 
@@ -50,7 +90,7 @@ library(sf)
 
 Read in data for 2001 and 2011 land use data. This tutorial grabs the data from the class Github repo.
 
-If you have data on your machine, you will have to find the appropriate filepath for where these data are stored on your machine (e.g. "C//mycomputer/myfolder/myfile.txt").
+If you have data on your machine from your ArcGIS export, you will have to find the appropriate filepath for where these data are stored on your machine (e.g. "C//mycomputer/myfolder/myfile.txt").
 
 ```{r read_data, message=FALSE, warning=FALSE, include=TRUE}
 
@@ -61,9 +101,9 @@ dat_2001 <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/
 dat_2011 <- read.csv("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_2/data/R_Data/2011.txt")
 ```
 
-# 3. Explore and clean data
+# 6. Explore and clean data
 
-## 3.1. Explore
+## 6.1. Explore
 
 Let's look at our new data frames using some commands which ask about the nature or dimensions of our data.
 
@@ -75,7 +115,7 @@ Try to execute the code below in your console:
 glimpse(dat_2001)
 ```
 
-## 3.2. Select relevant columns
+## 6.2. Select relevant columns
 
 We will create two new dataframes which contain only the variables we need. We'll pull out only what we want - 
 
@@ -121,24 +161,19 @@ dat_2011_2 <- dat_2011 %>%
   mutate(year = "2011")
 ```
 
-We can use a "boolean expression to see if our names are the same, or we can use the function `setdiff` to figure out what might be different
-
-```{r variable_check, echo=TRUE}
-names(dat_2001_2) == names(dat_2011_2)
-setdiff(names(dat_2001_2), names(dat_2011_2))
-```
-
 Now we can append these data frames together by row using `rbind` ("row bind"). You can put two data frames together in this manner if they have congruent column names and types.
 
 ```{r bind_years, echo=TRUE}
 data <- rbind(dat_2001_2, dat_2011_2)
 ```
 
-Want to make sure this `rbind` went off without a hitch? Take a look at it with the `View()` command.
+Want to make sure this `rbind` went off without a hitch? Take a look at `data` with the `View()` command.
 
-# 4. Summarize Data
+# 7. Summarize Fragstats
 
 Let's use some tidy functions to `summarize` our data by municipality and by year and then `filter` out any observations that are not in a municipality.
+
+## 7.1. Summarizing using "Long" Data
 
 Here we `group_by` year and municipality and summarize some patch statistics.
 
@@ -154,11 +189,15 @@ summary <- data %>%
   as.data.frame()
 ```
 
-Now that we have summarized by municipality and year, we can calculate change for each town. Ultimately we are going to create some "wide" data with columns corresponding to each year and rows corresponding to each municipality.
+## 7.2. Summarizing using "Wide" Data
+
+Now that we have summarized by municipality and year, we can calculate change for each town. Ultimately we are going to create some "wide" data with columns corresponding to each year and rows corresponding to each municipality. This set-up will let us do "math" across columns like this:
+
+`Column Representing Change = Value in Column Representing Year 2011 - Value in Column Representing Year 2001`
 
 What we have right now are "long" data - where each observation represents a year and a municipality. To go wide to long and vice versa, there are some sophisticated functions in `dplyr` but we will do this in a simple way to start.
 
-We need to split the data into 2001 and 2011 again and rename the columns.
+We need to split the data into 2001 and 2011 again and rename the columns so each has a year name attached.
 
 We start by selecting observations from `summary` where `year == "2001"` using the `filter` command.
 
@@ -174,13 +213,7 @@ summarize2011  <- summary %>%
   filter(year == "2011")
 ```
 
-Are `summarize2001` and `summarize2011` the same length? e.g. the same number of towns?
-
-```{r summaries_same_length, echo=TRUE}
-length(summarize2001) == length(summarize2011) 
-```
-
-We rename variables the `colnames` fucntion so that the field names in each summary data frame have years attached to them. 
+We rename variables the `colnames` function so that the field names in each summary data frame have years attached to them. 
 
 ```{r summary_colnames, echo=TRUE}
 summarize2001 <- summarize2001 %>%
@@ -218,9 +251,9 @@ summarize2 <- cbind(summarize2001, summarize2011) %>%
                     numPatchChange = ((countPatch_11 - countPatch_01) / countPatch_01) * 100) 
 ```
 
-# 5. Create Maps
+# 8. Create Maps
 
-## 5.1 Import and join data
+## 8.1 Import and join data
 
 Import the Chester County boundary geojson.
 
@@ -230,13 +263,9 @@ townsShapefile <- read_sf("https://raw.githubusercontent.com/mafichman/CPLN_675/
 
 Let's examine it - it's an `sf` object - like a data frame but with a geometry attached. Use the `View()` and `glimpse` commands to look at the tabular view of the data.
 
-You can also do a quick look at it using the base plotting function in R
+We can do some basic GIS operations - like a tabular join
 
-```{r plot_towns_shape, echo=TRUE}
-plot(townsShapefile)
-```
-
-Next we add our summary data `summarize2` to the spatial data with a tabular join by `MUNI_NAME`.
+We join our summary data `summarize2` to `townsShapefile` by the unique identifier `MUNI_NAME`.
 
 This is a `left_join` where the `townsShapefile` is the left hand side and `summarize2` is on the right, meaning all the stuff on the left gets retained and joined only to elements of the right side that have a matching ID, in this case, `MUNI_NAME`.
 
@@ -246,9 +275,25 @@ Notice the result has as many observations as we have towns in `townsShapefile`.
 townsWithData <- left_join(townsShapefile, summarize2, by = "MUNI_NAME")
 ```
 
-## 5.2. Create graphic styles
+## 8.2 Mapping change
 
-Before we map our data, we can create some graphic styles.
+First we can map the change in the total number of patches per town.
+
+Notice that ggplot is a bit like dplyr (aka tidy R code), where you can create a "recipe" - using the `+` sign instead of the `%>%` operator.
+
+We create a `ggplot` and then we add a geometry - in this case `geom_sf`
+
+
+```{r patches_by_town, echo=TRUE}
+ggplot() + 
+  geom_sf(data=townsWithData, aes(fill=numPatchChange)) + 
+  coord_sf()
+```  
+
+
+## 8.3. Adding more complex graphic styles
+
+Let's make something a bit nicer.
 
 First a color palette of hexidecimal color codes which we can feed to our symbology options.
 
@@ -274,47 +319,26 @@ mapTheme <- theme(
   ) 
 ```
 
-## 5.3 Mapping change
+OK - so let's try that first map again, but we can add a customized color ramp using `scale_fill_gradientn` and some labels and titles.
 
-First we can map the change in the total number of patches per town.
-
-```{r patches_by_town, echo=TRUE}
+```{r patches_by_town_2, echo=TRUE}
 ggplot() + 
   geom_sf(data=townsWithData, aes(fill=numPatchChange)) + 
   coord_sf() +
-  scale_fill_gradientn(colors=ramp8, name = "Percent\nChange") +
-  labs(title="Change in the number of undeveloped patches by town\nChester County (2001-2011)") +
+  scale_fill_gradientn(colors=ramp8, name = "Percent") +
+  labs(title="Pct Change in the number of undeveloped patches by town\nChester County (2001-2011)") +
   mapTheme
-```  
+``` 
 
-We can also map the change in the area of those patches by town.
+# 9 Group Workshop Prompts
 
-```{r patches_area_by_town, echo=TRUE} 
-ggplot() + 
-  geom_sf(data=townsWithData, aes(fill=sumAreaChange)) + 
-  coord_sf() +
-  scale_fill_gradientn(colors=ramp8, name = "Percent\nChange") +
-  labs(title="Change in the area of non-developed patches\nChester County (2001-2011)") +
-  mapTheme
-```
+Complete one or more of the following workshop activities as time allows:
 
-Lastly we can map the change in compactness (isoperimetric quotient) during the span 2001-2011
+## 9.1. Map Challenge 1
 
-```{r iso_by_town, echo=TRUE} 
-ggplot() + 
-  geom_sf(data=townsWithData, aes(fill=compactness_Change)) + 
-  coord_sf() +
-  scale_fill_gradientn(colors=ramp8, name = "Percent\nChange") +
-  labs(title="Change in the undeveloped land fragmentation by town\nChester County (2001-2011)",
-          caption="Fragmentation defined by the 'Isoperimetric quotient' - The compactness of a given landscape patch\nrelative to the most compact shape (a circle) with the same perimter. The lower the quotient, the \nmore fragmented a shape is considered. Fragmentation is related to a \ndecrease in the hardiness of ecosystems") +
-  mapTheme
-```
+Create maps like the one in Section 5 for `sumAreaChange` and `compactness_Change` with a new color ramp, and captions that provide detailed descriptions of the nature of the metrics depicted in the maps (e.g. What is the isoperimetric quotient).
 
-# 6 Group Workshop Prompts
-
-We will try to complete as many of the following workshop activities as time allows:
-
-## 6.1 Map Challenge
+## 9.2. Map Challenge 2
 
 Create a "facetted" map of fragmentation count by municipality. We will do this to answer the question "Did the spatial process of fragmentation change in Chester County between 2001 and 2011?"
 
@@ -366,3 +390,7 @@ ggplot() +
   labs(title="Number of Undeveloped Land Fragments, Chester County, PA (2001-2011)") +
   mapTheme
 ```
+
+## 9.3. Map Challenge 3
+
+Install and load the `mapview` package - use it to make a dynamic map that visualizes the isoperimentric quotient for Chester County municipalities.
