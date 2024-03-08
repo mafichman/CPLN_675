@@ -1,0 +1,759 @@
+---
+title: "CPLN 675: Spatial Predictive Modeling for Classification"
+author: "Michael Fichman and Ken Steif, University of Pennsylvania"
+date: "3/8/2024"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+---
+
+```{r setup, include=FALSE,message = FALSE,cache=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=999)
+library(knitr)
+```
+
+
+# 1. Introduction
+
+Recall our site suitability exercise in Week 1 - we used our own spatial decision factors, or "weights" to impose a rule-based system for identifying land areas. We are going to learn an alternative approach, where we use a statistical model to algorithmically determine the weights and subsequent siting.
+
+The use case is as follows - assume you are a program manager at a land conservation non-profit, and you are seeking to use your resources to acquire land to conserve. Given all the land in Pennsylvania, it's hard know where to start, so you need to find a way to identify suitable areas to investigate for acquisition. By using a predictive model, you can identify likely lands and begin to research their ownership, and determine whether they are available.
+
+This is a relatively simplified exercise - there are some detailed ways to "tune" models to make them more powerful and flexible - to introduce you to logistic regression as a tool for classification. You will be able to use this general workflow in your midterm project, when you will create your own features for a similar model.
+
+## 1.1. Learning objectives
+
+1. Use binomial logistic regression to create a classification prediction.
+
+2. Use training and testing data to tune a model.
+
+3. Learn about goodness of fit and error metrics for classification models.
+
+4. Learn about the properties and uses of long data.
+
+5. Understand the methods you will be using on Assignment 3 and understand the predictive modeling workflow.
+
+# 2. Setup
+
+To get started, let's install libraries and a set of ggplot styles we call `mapTheme` and `plotTheme`.
+
+If you don't have particular libraries installed, run the command `install.packages('name_of_package_in_quotes')` with the relevant package, and then call them into your environment with a `library` command.
+
+```{r libraries, warning = FALSE, message = FALSE}
+library(caret)
+library(pscl)
+library(plotROC)
+library(pROC)
+library(sf)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(tigris)
+library(viridis)
+```
+
+
+```{r mapTheme, echo=TRUE}
+mapTheme <- theme(plot.title =element_text(size=12),
+                  plot.subtitle = element_text(size=8),
+                  plot.caption = element_text(size = 6),
+                  axis.line=element_blank(),
+                  axis.text.x=element_blank(),
+                  axis.text.y=element_blank(),
+                  axis.ticks=element_blank(),
+                  axis.title.x=element_blank(),
+                  axis.title.y=element_blank(),
+                  panel.background=element_blank(),
+                  panel.border=element_blank(),
+                  panel.grid.major=element_line(colour = 'transparent'),
+                  panel.grid.minor=element_blank(),
+                  legend.direction = "vertical", 
+                  legend.position = "right",
+                  plot.margin = margin(1, 1, 1, 1, 'cm'),
+                  legend.key.height = unit(1, "cm"), legend.key.width = unit(0.2, "cm"))
+
+plotTheme <- theme(
+  plot.title =element_text(size=12),
+  plot.subtitle = element_text(size=8),
+  plot.caption = element_text(size = 6),
+  axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+  axis.text.y = element_text(size = 10),
+  axis.title.y = element_text(size = 10),
+  # Set the entire chart region to blank
+  panel.background=element_blank(),
+  plot.background=element_blank(),
+  #panel.border=element_rect(colour="#F0F0F0"),
+  # Format the grid
+  panel.grid.major=element_line(colour="#D0D0D0",size=.75),
+  axis.ticks=element_blank())
+```
+
+Let’s load our data. We are going to include two datasets: `preserve`, which is a fishnet dataset representing preserved land, and `protected`, which is the original protected lands shapefile.
+
+How do you make a fishnet on your own? You can learn about that in the [Intro to R](https://mafichman.github.io/R_FAQ_For_Planners/#Making_a_%E2%80%9CFishnet%E2%80%9D) course text.
+
+```{r load_data, warning = FALSE, message = FALSE, results = "hide"}
+preserve <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/fishnet3k_pa_JoinDEM_Slope_distSlope_distUrban_landCover_distRivers.geojson")
+
+protected <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/pa_protected_lands2.geojson")
+```
+
+We are going to load data in that are projected in WGS 84, which is the "web mercator" coordinate system, which is in units of decimal degrees (e.g. lat/lon). We want to re-project it to something with a linear unit in feet or meters so that we can do various distance measurements later on.
+
+Let's project it to PA State Plane, which has a CRS (coordinate reference system) of 2272.
+
+Check out [spatialreference.org](spatialreference.org) for the crs numbers of all the coordinate systems out there that you might want to use.
+
+```{r transform}
+preserve <- preserve %>%
+  st_transform(crs = 2272)
+
+protected <- protected %>%
+  st_transform(crs = 2272)
+
+```
+
+Let's also load a shape of PA counties from the US Census via the `tigris` package, make sure it's an sf object (`st_as_sf`) and reproject it to crs = 2272 like our other data (`st_transform`).
+
+```{r pa_shp, message= FALSE, warning = FALSE, results = "hide"}
+counties <- counties('PA') %>%
+  st_as_sf() %>%
+  st_transform(crs = 2272)
+```
+
+# 3. Exploratory analysis
+
+Let’s start by checking out the variables we have in our datasets using the `glimpse` command.
+
+```{r glimpse1, eval=FALSE}
+glimpse(preserve)
+
+glimpse(protected)
+```
+
+## 3.1. Maps
+
+Let's plot the sf object of our protected lands on top of our counties. We give the shape some color and transparency (alpha).
+
+```{r first_plot, warning = FALSE, message = FALSE}
+ggplot() +
+  geom_sf(data = counties)+
+  geom_sf(data=protected, 
+          fill = "dark green", 
+          color = "dark green",
+          alpha = 0.6) +
+  labs(title="Protected lands in Pennsylvania") +
+  mapTheme
+```
+
+Now let’s plot the fishnet version. 
+
+Notice we set the `fill` of our `geom_sf` to `as.factor(preserve)` and set the color to "transparent" outside the aesthetics. What does this do?
+
+Can you play with this ggplot and switch the colors and styling?
+
+```{r plot_fishnet}
+ggplot() + 
+  geom_sf(data=preserve, aes(fill=as.factor(preserve)), color = "transparent") +
+  geom_sf(data = counties, fill = "transparent", color = "white")+
+  scale_fill_manual(values = c("dark blue", "dark green"),
+                    labels = c("Not Preserved","Preserved"),
+                    name = "") +
+  labs(title="Protected lands in Pennsylvania (Fishnet)") +
+  mapTheme
+```
+
+## 3.2. Plots
+
+Let’s build some bar plots that show differences in our independent variables across land that has and has not been preserved. 
+
+Notice the use of the `gather` function. What is it doing? Use `glimpse` to examine the data.
+
+```{r wide_2_long}
+preservePlotVariables <- 
+  preserve %>%
+  as.data.frame() %>%
+  select(preserve,elevation,slope,dSteepSlop,dUrban,distRivers) %>%
+  gather(variable, value, -preserve)
+```
+
+*Note* there is a more modern version of `gather` known as `pivot_longer`, where the syntax would look like this:
+
+```{r pivot_longer, eval=FALSE}
+preserve %>% as.data.frame() %>%
+    select(preserve,elevation,slope,dSteepSlop,dUrban,distRivers) %>% 
+    pivot_longer(cols = -preserve)
+```
+
+We are seeing this weird concept of wide and long data again - this graphic is pretty helpful understanding how data can transform from one form to another.
+
+*Can you think of a few situations in which one form or another is appropriate?*
+
+![Pivoting between wide and long data](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/images/tidyr-spread-gather.gif)
+Image: https://www.garrickadenbuie.com/
+
+Let's examine some of the variables and how they vary across our preserved/not preserved variable. Our `preservePlotVariables` data frame has rows for each cell-variable pair, we `group_by` variable and preservation status and take the mean value for each variable by status.
+
+```{r eda_by_status}
+ggplot(preservePlotVariables %>%
+         group_by(preserve, variable) %>%
+         summarize(mean = mean(value))) + 
+     geom_bar(aes(as.factor(preserve), 
+                  mean, 
+                  fill=as.factor(preserve)),
+              stat="identity") + 
+     facet_wrap(~variable) +
+     scale_fill_manual(values = c("dark blue", "dark green"),
+                      labels = c("Not Preserved","Preserved"),
+                      name = "") +
+    labs(x="Preserved", y="Value")
+```
+
+*Question:*
+
+**Can you calculate how many fishnet grid cells are preserved?  What is it on a percentage basis? Can you re-scale slope to look at it how it varies from preserved/not-preserved using the 'scales' argument in the facet argument?**
+
+*Bonus - check out this code - another way to examine these data, what do you see here that might inform a model?*
+
+```{r violin_plot, eval=FALSE}
+ggplot(preservePlotVariables) + 
+     geom_violin(aes(x = as.factor(preserve), 
+                  y = value, fill = as.factor(preserve))) + 
+     facet_wrap(~variable, scales = "free") +
+     labs(x="Preserved", y="Value") + 
+     scale_fill_manual(values = c("dark blue", "dark green"),
+     labels = c("Not Preserved","Preserved"), name = "") +
+     labs(x="Preserved", y="Value") + 
+  plotTheme
+```
+
+# 4. Data wrangling
+
+Lets build another data set of just the variables we want to analyze. Notice that land cover is an integer but we want it to be a factor, so it gets re-coded.
+
+```{r}
+preserve <- 
+  preserve %>%
+  select(preserve,elevation,slope,dSteepSlop,landCover,dUrban,distRivers, Id) %>%
+  mutate(landCover = as.factor(landCover))
+```
+
+# 5. Model building
+
+In order to assess our model's accuracy, we are going to split our data into training and test sets. The test set will be put aside as we train our model on the `training` set. We then predict for the test set values using our model and compare the accuracy of our predictions to the known values in the test set to see how well our model performs.
+
+## 5.1. Partition training and test sets
+
+Now we create training and test sets. 
+
+Let's look over this operation:
+
+- `set.seed` generates a random number
+
+- `createDataPartition` randomly separates our data into two sets. We set `p` to .7 - a 70% training set and 30% test set.
+
+*Why do you think `preserve$landCover` is specified below?*
+
+*Why is it important to have separate training and test sets?*
+
+```{r training_set}
+set.seed(3456)
+trainIndex <- createDataPartition(preserve$landCover, p = .70,
+                                  list = FALSE,
+                                  times = 1)
+
+preserveTrain <- preserve[ trainIndex,]
+preserveTest  <- preserve[-trainIndex,]
+```
+
+## 5.2. Make a binomial model
+
+Now let’s estimate a logistic regression model. The binomial logit model runs in the `glm` function (generalized linear models). We specify the dependent variable as `preserve` and run the model on our training set `preserveTrain`.
+
+Note how we can use the dplyr pipes right in the data parameter. We have to convert to a data frame because R won’t know how to run a regression on an sf.
+
+Let's look at the model output, we see that we have coefficients, and p-values, but no R-squared. There are other goodness of fit metrics we will look at. The AIC, though not on a 0-1 scale like R-squared, has a similar function in that it tells you about overall model fit, but not about error and accuracy.
+
+We are not really interested in our coefficients other than their magnitude, directionality and p-value (generall). But for the record, the way the coefficients in a logistic regression are interpreted is different than in OLS - we are talking in terms of "odds" of an outcome occurring (in our case odds of land being preserved.). If we exponentiate the coefficient (`exp()`) we can interpret it as *all else equal* the exponentiated value being the increase or decrease in the odds of the outcome.
+
+```{r firstModel, warining = FALSE, message = FALSE}
+preserveModel <- glm(preserve ~ ., 
+                    family="binomial"(link="logit"), data = preserveTrain %>%
+                                                            as.data.frame() %>%
+                                                            select(-geometry, -Id))
+summary(preserveModel)
+
+```
+
+## 5.3. Model validation
+
+Using the `predict` function, we create a vector of classification probabilities we call `classProbs`. These are the predicted probability of a test set (`preserveTest`) fishnet cell being conserved conditional on our model. Setting the parameter `type="reponse"` returns probabilities that range from 0 to 1.
+
+*What do you make of the distribution of classProbs?*
+
+```{r predict_first}
+classProbs <- predict(preserveModel, preserveTest, type="response")
+
+hist(classProbs)
+```
+
+Let’s put `classProbs` into a data frame along with the observed `preserve` outome, which is either `1` for preserved land or `0` for unpreserved.
+
+Then we build this funky plot, `testProbsPlot`. The vertical line represents a 0.5 probability of preservation.
+
+*Can you interperet this plot? Can you come up with a title for this plot?*
+
+```{r plot_preds}
+testProbs <- data.frame(obs = as.numeric(preserveTest$preserve),
+                        pred = classProbs)
+
+ggplot(testProbs, aes(x = pred, fill=as.factor(obs))) + 
+  geom_density() +
+  facet_grid(obs ~ .) + 
+  xlab("Probability") +
+  ylab("Frequency")+
+  geom_vline(xintercept = .5) +
+  scale_fill_manual(values = c("dark blue", "dark green"),
+                      labels = c("Not Preserved","Preserved"),
+                      name = "")+
+  plotTheme
+```
+
+### 5.3.1 Confusion metrics
+
+*Now we have to figure out at which probability level do we wish to classify land as being preserved.  How do we make this decision?*
+
+Let’s (arbitrarily for now) choose 50% and then create a table of our correct and incorrect predictions, called a "confusion matrix". Below we set the reference to the observed preserved status, data to the predicted outcome, and make sure to state which factor level is the positive (ie. preserved) level. Note that `confusionMatrix` does not take numeric inputs, only factors.
+
+```{r confusion_matrix, message = FALSE, warning = FALSE}
+testProbs$predClass  = ifelse(testProbs$pred > .5 ,1,0)
+
+caret::confusionMatrix(reference = as.factor(testProbs$obs), 
+                       data = as.factor(testProbs$predClass), 
+                       positive = "1")
+```
+
+What is the sensitivy and specificity suggest about our model? What is accuracy suggest? Why would we choose a higher threshold cutoff?
+
+**Predicted = 0, Observed = 0 —> True Negative**
+
+**Predicted = 1, Observed = 1 —> True Positive**
+
+**Predicted = 1, Observed = 0 —> False Positive**
+
+**Predicted = 0, Observed = 1 —> False Negative**
+
+**1. Sensitivity - the proportion of actual positives (1’s) that were predicted to be positive. Also known as “true positive rate”.**
+
+**2. Specificity - The proportion of actual negatives (0’s) that were predicted to be negatives. Also known as “true negative rate”.**
+
+### 5.3.2. ROC Curve
+
+Let's create an ROC (receiver operating characteristic) curve. What does this tell us? 
+
+See Appendix 1 for more on ROC curves.
+
+```{r roc_curve, message = FALSE, warning = FALSE}
+
+ggplot(testProbs, aes(d = obs, m = pred)) + 
+  geom_roc(n.cuts = 50, labels = FALSE) + 
+  style_roc(theme = theme_grey) +
+  geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') 
+```
+
+How about the area under the curve?
+
+```{r auc, warning = FALSE}
+auc(testProbs$obs, testProbs$pred)
+```
+
+### 5.3.3. Cross validation
+
+Testing the power of your model on out of sample data is critical to the machine learning process. Cross-validation iteratively creates many randomly generated test sets or ‘folds’, testing the power of your model on each.
+
+First we set the ctrl parameter which specifies the flavor of cross validation we wish to use. You can see all the different cross validation options here. In this instance, number = 100 tell us that we are going to iteratively test our models on 100 hold out test sets.
+
+Then we estimate our model using the train function from the caret package. Note that we use the entire preserve data set as the process of cross-validation will create test sets for us.
+
+Make sure that you update the regression to the model you specified above.
+
+```{r k_fold, warning = FALSE, message = FALSE}
+ctrl <- trainControl(method = "cv", 
+                     number = 100, 
+                     p = 0.7, 
+                     savePredictions = TRUE)
+
+cvFit <- train(as.factor(preserve) ~ .,  data = preserve %>% 
+                                                as.data.frame() %>%
+                                                select(-geometry, -Id), 
+               method="glm", family="binomial",
+               trControl = ctrl)
+
+cvFit
+```
+
+Notice that the accuracy metric is actually the average accuracy across all 100 folds. While that is useful, what we are really interested in is the variability of accuracy across all 100 folds. Before going any further into that, let’s plot a histogram of accuracy across all 100 folds.
+
+Before doing so, check out `cvFit$resample`. What information is stored here?
+
+```{r cv_hist, warning = FALSE, message = FALSE}
+ggplot(as.data.frame(cvFit$resample), aes(Accuracy)) + 
+  geom_histogram() +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x="Accuracy",
+       y="Count")+
+  plotTheme
+```
+
+The key to this plot is as follows. We want a model that is generalizable, particularly to data it hasn’t seen already. Cross-validation helps us understand how the model works in this context. If our model was not generalizable to ‘out-of-sample’ data, then we should expect wildly different accuracies across each of the 100 folds.
+
+Is that what we see here? Do you think we have a generalizable model?
+
+What if we wanted to know whether our model generalized well across different counties (or kinds of counties)?
+
+### 5.3.2. Map predictions
+
+Now that we have tuned our model, let’s predict for the entire dataset and assess our predictions.
+
+```{r predict_whole, warning = FALSE, message= FALSE}
+allPredictions <- 
+  predict(cvFit, preserve, type="prob")[,2]
+  
+preserve <- 
+  cbind(preserve,allPredictions) %>%
+  mutate(allPredictions = round(allPredictions * 100)) 
+```
+
+Now we map the predictions.
+
+What would you title this map? 
+
+Note how we use ntile in the aes parameter to create quintiles. (The quintile labels are created in the scale_fill_manual function.)
+
+```{r predicted_map1, warning = FALSE, message = FALSE}
+ ggplot() + 
+    geom_sf(data=preserve, aes(fill=factor(ntile(allPredictions,5))), 
+            colour=NA) +
+    scale_fill_manual(values = c("#edf8fb","#b3cde3","#8c96c6","#8856a7","#810f7c"),
+                      labels=as.character(quantile(preserve$allPredictions,
+                                                 c(0.1,.2,.4,.6,.8),
+                                                 na.rm=T)),
+                      name="Predicted\nProbabilities(%)\n(Quintile\nBreaks)") +
+  mapTheme +
+  labs(title="")
+```
+
+Let’s map it again with the already other land cover types overlaid.
+
+```{r predicted_map2, warning = FALSE, message = FALSE}
+ ggplot() + 
+  geom_sf(data=preserve, aes(fill=factor(ntile(allPredictions,5))), colour=NA) +
+  scale_fill_manual(values = c("#edf8fb","#b3cde3","#8c96c6","#8856a7","#810f7c"),
+                    labels=as.character(quantile(preserve$allPredictions,
+                                                 c(0.1,.2,.4,.6,.8),
+                                                 na.rm=T)),
+                    name="Predicted\nProbabilities(%)\n(Quintile\nBreaks)") +
+  geom_sf(data=preserve  %>% 
+               filter(preserve == 1), 
+               fill="dark green",colour=NA) +
+  geom_sf(data=preserve %>% 
+              filter(landCover == 2), 
+            fill="red",colour=NA) +  
+  mapTheme +
+  labs(title="Observed and Predicted Conservation Areas",
+       subtitle="Pennsylvania; Existing conserved land in green; Existing development in red ")
+```
+
+We could assess many things about our model by exploring our errors.
+
+Let's map our confusion metrics across our entire data set for a 50% threshold. Notice I'm doing some `dplyr` commands to `preserve` and piping it into my ggplot call to keep from making a new data object. Nice shortcut.
+
+*Do we think there's something systematic to these errors? How would we find that out?*
+
+```{r error_map, warning = FALSE, message= FALSE}
+preserve %>%
+  mutate(confResult=case_when(allPredictions < 50 & preserve==0 ~ "True_Negative",
+                              allPredictions >= 50 & preserve==1 ~ "True_Positive",
+                              allPredictions < 50 & preserve==1 ~ "False_Negative",
+                              allPredictions >= 50 & preserve==0 ~ "False_Positive")) %>%
+  ggplot()+
+  geom_sf(aes(fill = confResult), color = "transparent")+
+  scale_fill_manual(values = c("Red","Orange","Light Blue","Light Green"),
+                    name="Outcomes")+
+  labs(title="Confusion Metrics") +
+  mapTheme
+
+```
+
+*Does this type of model have more, less or the same level of usefulness as a raster-based site suitability? Why?*
+
+# Appendix 1: ROC Curves - Is it a bird or a German Bomber?
+
+In the early days of radar, it was difficult for radar technology to tell the difference between incoming bomber aircraft and a flock of geese. This was a particular problem in World War 2 as the German bombing of London was a daily threat.
+
+Imagine we conducted some experiments with a radar, where for 6 different radar configurations, we counted the rate of true positives (ie. classified correctly) for both geese and for german bombers.
+
+We also collect data on false positives - the rate of incorrectly identified flocks of geese.
+
+Below we can see the results for our 6 radar configurations. We want Sensitivity to refer to the rate of bombers correctly classified (“True Positives”) and Specificity to refer to the number of geese correctly classified (“True Negatives”).
+
+```{r}
+a <- c(1,0,100,0)
+b <- c(2,35,95,5)
+c <- c(3,60,85,15)
+d <- c(4,85,70,30)
+e <- c(5,92,30,70)
+f <- c(6,100,0,100)
+
+radarObservations <- data.frame(rbind(a,b,c,d,e,f))
+colnames(radarObservations) <- c("Radar_Setting",
+                                "Sensitivity_Pct_Planes_Detected",
+                                "Specificity_Pct_Geese_Detected",
+                                "Pct_of_Geese_Incorrectly_Identified")
+
+kable(radarObservations)
+```
+
+What can you say about the tradeoff between detecting both bombers and geese as we crank up the radar setting?
+
+Which radar setting would you choose?
+
+Let’s create a plot of True Postive Rate and False Positive Rate. It may be easier to consider this relationship as ‘hit rate’ and ‘false alarm rate’ respectively.
+
+```{r}
+ggplot(radarObservations, 
+       aes(100 - Specificity_Pct_Geese_Detected,
+           Sensitivity_Pct_Planes_Detected)) +
+  geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
+  geom_point(size=2) + 
+  geom_line() +
+  xlab("False positive rate") + ylab("True positive rate") 
+```
+
+Does this plot help you to better understand which radar configuration is best? It’s all about tradeoffs.
+
+What do you think the grey line represents?
+
+We call this kind of plot an “ROC Curve” which stands for Receiver Operating Characteristic.
+
+What would a reading in the top most left corner represent?
+
+# Appendix 2: Measure nearest neighbor distance
+
+Imagine that we believe conservation is really a function of distance to Unicorn Farms and we wish to engineer a feature that was distance from each fishnet grid cell to the nearest unicorn farm. Note that we have these instructions in Arc as part of the Week 6 Markdown.
+
+First we have to create our unicorn farms. We do this by taking a random sample of 50 preserve fishnet grid cells, taking their centroids with st_centroid and mapping the mapping them.
+
+```{r}
+unicornFarms <-
+  preserve %>% 
+  sample_n(50) %>%
+  st_centroid() %>%
+  mutate(legendItem="Unicorn Farms")
+```
+
+```{r}
+ggplot() +
+  geom_sf(data=st_sf(st_union(preserve))) +
+  geom_point(data=unicornFarms, aes(st_coordinates(unicornFarms)[,1],
+                                    st_coordinates(unicornFarms)[,2],
+                                    colour="Unicorn Farms")) +
+  mapTheme
+```
+
+Next, in order to measure ‘nearest neighbor distance’, we have to convert both the unicorm farms and the preserve fishnet to matrices of xy centroid coordinates like so:
+
+```{r}
+preserveXY <-
+  preserve %>%
+  st_centroid %>%
+  st_coordinates  %>%
+  as.matrix()
+  
+unicornXY <-
+  unicornFarms %>%
+  st_coordinates %>%
+  as.matrix()
+
+head(unicornXY)
+```
+
+Next we can use the below ‘k nearest neighbor’ function to measure the average nearest neighbor distance from each preserve fishnet centroid to its nearest 1 (ie k=1) unicorn farm neighbor.
+
+It would be really helpful for you to run through this function line by line so that you understand what is going on.
+
+```{r}
+library(FNN)
+  
+nn_function <- function(measureFrom,measureTo,k) {
+
+nn <-   
+  get.knnx(measureTo, measureFrom, k)$nn.dist
+
+output <-
+  as.data.frame(nn) %>%
+  rownames_to_column(var = "thisPoint") %>%
+  gather(points, point_distance, V1:ncol(.)) %>%
+  arrange(as.numeric(thisPoint)) %>%
+  group_by(thisPoint) %>%
+  summarize(pointDistance = mean(point_distance)) %>%
+  arrange(as.numeric(thisPoint)) %>% 
+  dplyr::select(-thisPoint)
+  
+return(output)  
+  }  
+```
+
+Now let’s run the function, append unicornDistance to our fishnet centroids data frame and map. Notice, I bind the result to thepreserve data frame with bind_cols.
+
+See what’s going on with the nearest neighbor distance?
+
+```{r}
+unicornDistance <- nn_function(preserveXY, unicornXY, 1)
+
+output <- bind_cols(preserve, unicornDistance) 
+
+ggplot() +
+  geom_sf(data=st_sf(st_union(preserve))) +
+  geom_sf(data=output, aes(fill=pointDistance),colour=NA) +
+  geom_point(data=unicornFarms, aes(st_coordinates(unicornFarms)[,1],
+                                    st_coordinates(unicornFarms)[,2])) +
+  mapTheme
+```
+
+One nearest neighbor may be fine, but what if we want to increase the scale and measure average distance to three nearest unicorn farms?
+
+```{r}
+unicornDistance <- nn_function(preserveXY, unicornXY, 3)
+
+output <- bind_cols(preserve, unicornDistance) 
+
+ggplot() +
+  geom_sf(data=st_sf(st_union(preserve))) +
+  geom_sf(data=output, aes(fill=pointDistance),colour=NA) +
+  geom_point(data=unicornFarms, aes(st_coordinates(unicornFarms)[,1],
+                                    st_coordinates(unicornFarms)[,2])) +
+  mapTheme
+```
+
+# Appendix 3. Geoprocessing and data-wrangling vignettes
+
+In order to make other spatial variables for models you are building in R, you might find yourself wanting to summarize vector or raster information inside a fishnet.
+
+Let's take our basic fishnet `preserve` from the earlier part of this exercise, and think about how we are going to wrangle some basic data into the fishnet and engineer some features.
+
+## Spatial joins and summaries
+
+Let's join and summarize some spatial data to get it into our fishnet.
+
+First let's see which state forest district each cell belongs to ([these data come from PASDA and PA DCNR](https://www.pasda.psu.edu/uci/DataSummary.aspx?dataset=113)). We `st_read` state forest districts, reproject them to `crs = 2272` so they match `preserve` (not sure what CRS your data are in? query them with `st_crs`)
+
+```{r park_boundaries, message = FALSE, warning = FALSE, results= "hide"}
+forest_districts <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/DCNR_BOF_Bndry_SFM201703.geojson") %>%
+  st_transform(2272)
+```
+We can quickly check the data and see how they look. They are large polygons.
+
+```{r ggplot_districts}
+
+ggplot()+
+  geom_sf(data = forest_districts)
+
+```
+
+We can join our `preserve` centroids to these polygons. (Why are we joining the centroids to the polygons? Think about the scale biases associated with different types of joins.)
+
+We will do this in a few steps, but it's easiest when it's all "piped" together.
+
+```{r join_forests, warning = FALSE, message = FALSE}
+
+# Turn preserve into centroid points and join
+
+preserve_and_forests_centroid <-
+  st_join(preserve %>%
+            st_centroid(),
+          forest_districts)
+
+# Turn this data into a data frame, throw away everything but the new data and the unique id (select) of the fishnet cells and then join it back go the original
+
+preserve_and_forests_fishnet <-
+  left_join(preserve,
+            preserve_and_forests_centroid %>%
+              as.data.frame() %>%
+              select(DistrictNa, Id))
+```
+
+Now let's load in some points representing local park access points, and summarize how many points we find in each of our fishnet cells. These data [also come from DCNR](https://www.pasda.psu.edu/uci/DataSummary.aspx?dataset=308), and we reproject them to `crs = 2272` as well.
+
+```{r load_parks, warning = FALSE, message = FALSE, results = "hide"}
+local_parks <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/DCNR_LocalParkAccess201511.geojson") %>%
+  st_transform(2272)
+```
+
+Inspect the data and you will see that these are thousands of points across the commonwealth. Let's find out how many we have in each of our cells, and also calculate how many we have by unit area.
+
+Notice we join the parks on the left hand side of this join. What happens if you do it the other way?
+
+```{r join_parks, message = FALSE, warning = FALSE}
+parks_and_fishnet <- st_join(local_parks, preserve_and_forests_fishnet)
+```
+
+You can look at these data and see that we have lots of extraneous info. What do we really care about here? Number of points per cell. So let's group by our unique identifier, `Id` and summarize (you can use this `n()` way of doing things, or there are alternatives like `tally`), then join this summary back to the fishnet... all at once!
+
+Here we do a 'right_join` - we keep all the observations on the right hand side (e.g. our fishnet cells), and only the things on the left that we need.
+
+What is the `.` thing you ask? Well in a join you need two sides to write the function - so the period stands in for the data being piped in.
+
+```{r park_summary, message=FALSE, warning= FALSE}
+
+preserve_and_forests_and_parks_fishnet <-
+  parks_and_fishnet %>%
+  as.data.frame() %>% # Need to make the sf a dataframe to throw away the geometry
+  group_by(Id) %>%
+  summarize(n_parks = n()) %>%
+  right_join(., preserve_and_forests_fishnet) %>%
+  st_as_sf()
+
+```
+
+Now let's do an area normalization calculation and create a count of points by area. Mind the projection. Remember we are in `crs = 2272` that's a projected coordinate system with a linear unit in feet. If you are using `WGS84` aka `crs  4326` aka `lat /lon` aka `google maps projection` this will give you a calculation in decimal degrees, which is not good.
+
+The key is to use the `st_area` - and then we get a measurement in the linear unit.
+
+We create `parks_sqmi` by dividing the number of parks in the cell by the area (transformed into miles from feet). I looked up on google that 1 square foot is 3.587e-8 square miles.
+
+```{r unit_area}
+preserve_and_forests_and_parks_fishnet <-
+  preserve_and_forests_and_parks_fishnet %>%
+  mutate(area = st_area(geometry),
+         parks_sqmi = n_parks/(as.numeric(area)*.00000003587))
+```
+
+Now I'm going to make a map just to check it all out:
+
+```{r last_map}
+ggplot()+
+  geom_sf(data = preserve_and_forests_and_parks_fishnet,
+          aes(fill = parks_sqmi), color = "transparent")+
+  scale_fill_viridis()+
+  labs(title="Density of park access points",
+       subtitle="Points/ sqmi ")+
+  mapTheme
+
+```
+
+## Rescale/recategorize data
+
+What if I wasn't so keen on steep slopes being related in a linear way to our outcome? Maybe I can reclassify them into what we call a "dummy variable" (aka a "fixed effect") - what if we call some new levels "high slope", "medium slope" and "low slope." I can do this with a `case_when` for multiple categories. I could also use `ifelse` to create two categories. Check out these examples:
+
+```{r rescale_slope}
+preserve_and_forests_and_parks_fishnet %>%
+  mutate(slope_category_2 = ifelse(slope >= 6, "high slope", "low slope"),
+         slope_category_3 = case_when(slope < 3 ~ "low slope",
+                                      slope >= 3 & slope <6 ~ "medium slope",
+                                      slope >= 6 ~ "high slope"))
+```
