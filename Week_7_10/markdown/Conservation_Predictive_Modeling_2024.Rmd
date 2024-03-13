@@ -337,9 +337,15 @@ caret::confusionMatrix(reference = as.factor(testProbs$obs),
                        positive = "1")
 ```
 
-What is the sensitivy and specificity suggest about our model? What is accuracy suggest? Why would we choose a higher threshold cutoff?
+What do the sensitivity and specificity suggest about our model? 
 
-**Predicted = 0, Observed = 0 —> True Negative**
+What do you make of the accuracy level? 
+
+Why would we choose a higher or lower threshold?
+
+You are likely to encounter a few different synonyms for some key terms - here they are.
+
+**Predicted = 0, Observed = 0 —> True Negative** 
 
 **Predicted = 1, Observed = 1 —> True Positive**
 
@@ -353,7 +359,11 @@ What is the sensitivy and specificity suggest about our model? What is accuracy 
 
 ### 5.3.2. ROC Curve
 
-Let's create an ROC (receiver operating characteristic) curve. What does this tell us? 
+Let's create an ROC (receiver operating characteristic) curve. This is a general diagnostic of model performance. Let's walk through the figure below.
+
+Each point on the line represents a threshold cutoff for our model. On the x-axis we have the proportion of times our model gets 0's wrong (false positives), and on the y-axis the proportion of the time we get 1's right (true positives). So for a point at (1,1), there is a cutoff where we are getting all our 1s right, but we are also mis-classifying all our 0's as 1's - essentially our model is a machine that predicts 1s.
+
+What do you think the curve tells you about our model?
 
 See Appendix 1 for more on ROC curves.
 
@@ -373,7 +383,7 @@ auc(testProbs$obs, testProbs$pred)
 
 ### 5.3.3. Cross validation
 
-Testing the power of your model on out of sample data is critical to the machine learning process. Cross-validation iteratively creates many randomly generated test sets or ‘folds’, testing the power of your model on each.
+Testing the power of your model on out of sample data is critical to the machine learning process. Cross-validation iteratively creates  randomly generated test sets or ‘folds’, testing the out-of-sample accuracy of your model on each fold. Sometimes, you get a uniquely sympathetic test set (or one you perform badly on) - this method diagnoses how well our model handles different test data.
 
 First we set the ctrl parameter which specifies the flavor of cross validation we wish to use. You can see all the different cross validation options here. In this instance, number = 100 tell us that we are going to iteratively test our models on 100 hold out test sets.
 
@@ -565,7 +575,7 @@ ggplot() +
   mapTheme
 ```
 
-Next, in order to measure ‘nearest neighbor distance’, we have to convert both the unicorm farms and the preserve fishnet to matrices of xy centroid coordinates like so:
+Next, in order to measure ‘nearest neighbor distance’, we have to convert both the unicorn farms and the preserve fishnet to matrices of xy centroid coordinates like so:
 
 ```{r}
 preserveXY <-
