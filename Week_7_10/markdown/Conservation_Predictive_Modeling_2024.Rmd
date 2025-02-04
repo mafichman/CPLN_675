@@ -213,9 +213,13 @@ ggplot(preservePlotVariables %>%
     labs(x="Preserved", y="Value")
 ```
 
-*Question:*
+*Questions:*
 
-**Can you calculate how many fishnet grid cells are preserved?  What is it on a percentage basis? Can you re-scale slope to look at it how it varies from preserved/not-preserved using the 'scales' argument in the facet argument?**
+**Can you calculate how many fishnet grid cells are preserved?**  
+
+**What is it on a percentage basis?**
+
+**Can you re-scale slope to look at it how it varies from preserved/not-preserved using the 'scales' argument in the facet argument?**
 
 *Bonus - check out this code - another way to examine these data, what do you see here that might inform a model?*
 
