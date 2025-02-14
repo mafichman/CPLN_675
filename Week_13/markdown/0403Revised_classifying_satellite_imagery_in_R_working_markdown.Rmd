@@ -1,0 +1,349 @@
+---
+title: "Classifying Satellite Data in R Tutorial"
+author: "Sydney Goldstein, Jenna Epstein"
+date: "4/14/2021"
+output: html_document
+---
+
+This is code to accompany the Week 13 tutorial (index.html from this week's folder in the class repo) on NDVI and supervised classification in R, written by Sydney Goldstein, and adapted by Jenna Epstein.
+
+## Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup}
+library(raster)
+library(tidyverse)
+library(sf)
+library(rpart)
+library(rasterVis)
+library(mapedit)
+library(mapview)
+library(caret)
+library(forcats)
+library(rpart.plot)
+library(patchwork)
+
+```
+
+```{r load bands datafrom github}
+band1 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/band1.tif")
+band2 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/band2.tif")
+band3 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/band3.tif")
+band4 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/band4.tif")
+band5 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/band5.tif")
+band6 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/band6.tif")
+band7 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/band7.tif")
+band8 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/band8.tif")
+band9 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/band9.tif")
+band10 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/band10.tif")
+band11 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/band11.tif")
+
+```
+
+```{r or if you downloaded repo then load the bands locally}
+# Or, if you downloaded repo, you can load the bands locally. Uncomment the lines below to do so.
+path <- "E:/UPenn/24Spring/CPLN675/repo/Week_13/data/"
+
+band1 <- raster(paste0(path, "band1.tif"))
+band2 <- raster(paste0(path, "band2.tif"))
+band3 <- raster(paste0(path, "band3.tif"))
+band4 <- raster(paste0(path, "band4.tif"))
+band5 <- raster(paste0(path, "band5.tif"))
+band6 <- raster(paste0(path, "band6.tif"))
+band7 <- raster(paste0(path, "band7.tif"))
+band8 <- raster(paste0(path, "band8.tif"))
+band9 <- raster(paste0(path, "band9.tif"))
+band10 <- raster(paste0(path, "band10.tif"))
+band11 <- raster(paste0(path, "band11.tif"))
+```
+
+```{r}
+# Plot band1 using base R plot function.
+plot(band1)
+```
+
+```{r}
+# Plot band 10
+plot(band10)
+```
+
+```{r}
+res(band8)
+
+```
+
+```{r}
+#If we try to stack band8 with the others as is, it will return an error because the grid cells do not overlay correctly. We aggregate the cell size to 30 meters prior to stacking the rasters into one image. fact in the aggregate function is the multiplier. In this case, we are multiplying 15 meters times 2 to get 30 meters, the resolution of the other rasters in the image.
+
+band8 <- aggregate(band8, fact = 2)
+
+image <- stack(band1, band2, band3, band4, band5, band6, band7, 
+               band8, band9, band10, band11)
+```
+
+## Exploring the imagery
+
+```{r}
+nlayers(image)
+```
+
+```{r}
+crs(image)
+```
+```{r}
+res(image)
+```
+
+```{r}
+par(col.axis="white",col.lab="white",tck=0)
+plotRGB(image, r = 4, g = 3, b = 2, axes = TRUE, 
+        stretch = "lin", main = "True Color Composite")
+box(col="white")
+```
+
+```{r}
+par(col.axis="white",col.lab="white",tck=0)
+plotRGB(image, r = 5, g = 4, b = 3, axes = TRUE, stretch = "lin", main = "False Color Composite")
+box(col="white")
+```
+
+## Calculating Normalized Difference Vegetation Index
+
+```{r}
+ndvi <- (image[[5]] - image[[4]])/(image[[5]] + image[[4]])
+```
+
+```{r}
+#minimum
+min(ndvi@data@values, na.rm = T)
+```
+
+```{r}
+#maximum
+max(ndvi@data@values, na.rm = T)
+```
+Note: This code differs slightly from Sydney's HTML markdown.
+
+```{r}
+# JE Note: can also use geom_raster instead of geom_tile.
+# JE Note: I brought in the cityBoundary earlier to use to set the crs for ggplot. SpatialPixelsDataFrame stripped the crs and reprojecting it was not working as expected.
+
+# Read in the city boundary for Calgary
+cityBoundary <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/CityBoundary.geojson", quiet = TRUE)
+
+# Convert ndvi to dataframe
+ndvi_df <- as(ndvi, "SpatialPixelsDataFrame") %>%
+  as.data.frame()
+
+# Create ggplot, using the city boundary to set the crs
+ggplot() +
+  geom_sf(data = cityBoundary %>% st_transform(crs = crs(image)), fill = "light gray", color = NA) +
+  geom_tile(data=ndvi_df, aes(x = x, y = y, fill = layer)) +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.minor = element_blank()) +
+  labs(title = "NDVI for Calagary", 
+       x = " ", 
+       y = " ") +
+  scale_fill_gradient(high = "#087F28", 
+                      low = "#CEE50E",
+                      name = "NDVI")
+
+```
+## Supervised Classification
+
+Option 1: Create training points in mapview
+
+```{r}
+# create training points in mapview
+
+points <- viewRGB(image, r = 4, g = 3, b = 2) %>% editMap()
+```
+
+```{r}
+# save as clouds after first iteration
+clouds <- points$finished$geometry %>% st_sf() %>% mutate(class = "clouds", id = 1)
+```
+
+Do this repeatedly for `water`, `developed`, `undeveloped` and then bind them together and call them `training_points`
+
+```{r}
+
+training_points <- rbind(clouds, developed, undeveloped, water)
+
+```
+
+...OR...
+
+Option 2: Load in sample training points
+
+```{r}
+# JE Note: I first loaded the local file for training_points using st_read; then, I wrote out as a geojson with st_write to make it easier to create the endpoint and push to github.
+
+training_points <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_13/data/calgary_trainingPoints.geojson")
+
+```
+
+```{r}
+# create a map looking at just the distribution of points
+A <- ggplot() +
+  geom_sf(data = cityBoundary, fill = "light gray", color = NA) +
+  geom_sf(data = training_points, size = 0.5) +
+  labs(title = "Distribution of\nclassification points") +
+  theme(panel.background = element_blank(), axis.ticks = element_blank(), axis.text = element_blank())
+
+# create a map looking at the distribution of points by classification type
+B <- ggplot() +
+  geom_sf(data = cityBoundary, fill = "light gray", color = NA) +
+  geom_sf(data = training_points, aes(color = class), size = 0.5) +
+  scale_color_manual(values = c('cyan', 'burlywood', 'darkgreen', 'blue')) +
+  labs(title = "Classification points by land use") +
+  theme(panel.background = element_blank(), axis.ticks = element_blank(), axis.text = element_blank())
+
+# plot side by side
+A + B + plot_layout(ncol = 2)
+```
+
+### Extracting spectral values from the raster
+
+```{r}
+training_points <- as(training_points, 'Spatial')
+
+# If this code above fails, try this -
+
+#training_points <- as_Spatial(training_points)
+
+df <- raster::extract(image, training_points) %>%
+  round()
+```
+
+```{r}
+head(df)
+```
+
+
+### Exploratory analysis: Plotting the spectral profile
+
+```{r}
+profiles <- df %>% 
+  as.data.frame() %>% 
+  cbind(., training_points$id) %>% 
+  rename(id = "training_points$id") %>% 
+  na.omit() %>% 
+  group_by(id) %>% 
+  summarise(band1 = mean(band1),
+            band2 = mean(band2),
+            band3 = mean(band3),
+            band4 = mean(band4),
+            band5 = mean(band5),
+            band6 = mean(band6),
+            band7 = mean(band7),
+            band8 = mean(band8),
+            band9 = mean(band9),
+            band10 = mean(band10),
+            band11 = mean(band11)) %>% 
+  mutate(id = case_when(id == 1 ~ "clouds",
+                        id == 2 ~ "developed",
+                        id == 3 ~ "undeveloped",
+                        id == 4 ~ "water")) %>% 
+  as.data.frame()
+
+head(profiles)
+```
+
+```{r}
+profiles %>% 
+  select(-id) %>% 
+  gather() %>% 
+  mutate(class = rep(c("clouds", "developed", "undeveloped", "water"), 11)) %>% 
+  ggplot(data = ., aes(x = fct_relevel(as.factor(key),
+                                       c("band1", "band2", "band3",
+                                                  "band4","band5",
+                                                  "band6", "band7", 
+                                                  "band8", "band9", "band10",
+                                                  "band11")), 
+                       y = value, 
+                           group=class, 
+                       color = class)) +
+  geom_point(size = 2.5) +
+  geom_line(lwd = 1.2) +
+  scale_color_manual(values=c('cyan', 'burlywood', 'darkgreen', 'blue')) +
+  labs(title = "Spectral Profile from Landsat 8 Imagery",
+       x = "Bands",
+       y = "Reflectance") +
+  #scale_y_continuous(limits=c(5000, 15000)) +
+  theme(panel.background = element_blank(),
+        panel.grid.major = element_line(color = "gray", size = 0.5),
+        panel.grid.minor = element_line(color = "gray", size = 0.5),
+        axis.ticks = element_blank())
+```
+
+```{r}
+profiles %>% 
+  select(-id) %>% 
+  gather() %>% 
+  mutate(class = rep(c("clouds", "developed", "undeveloped", "water"), 11)) %>% 
+  ggplot(., aes(x=value, group=as.factor(class), fill=as.factor(class))) + 
+  geom_density(alpha = 0.75) + 
+  geom_vline(data = . %>% group_by(class) %>% summarise(grp.mean = mean(value)),
+             aes(xintercept=grp.mean, color = class), linetype="dashed", size=1) +
+  scale_fill_manual(values=c('cyan', 'burlywood', 'darkgreen', 'blue'),
+                    name = "class") +
+  scale_color_manual(values=c("gray", "#CD853F", "#3CB371", "#33CEFF")) +
+  theme(panel.background = element_blank(),
+        panel.grid.major = element_line(color = "gray", size = 0.5),
+        panel.grid.minor = element_line(color = "gray", size = 0.5),
+        axis.ticks = element_blank()) +
+  labs(x = "Reflectance Value",
+       y = "Density",
+       title = "Density histograms of spectral profiles",
+       subtitle = "Vertical lines represent mean group reflectance values")
+```
+
+### Classifying the imagery
+
+```{r}
+df <- data.frame(training_points$class, df)
+
+model.class <- rpart(as.factor(training_points.class)~., data = df, method = 'class')
+```
+
+```{r}
+rpart.plot(model.class, box.palette = 0, main = "Classification Tree")
+
+```
+
+```{r}
+pr <- predict(image, model.class, type ='class', progress = 'text') %>% 
+  ratify()
+
+levels(pr) <- levels(pr)[[1]] %>%
+  mutate(legend = c("cloud","developed","undeveloped","water"))
+```
+
+```{r}
+levelplot(pr, maxpixels = 1e6,
+          col.regions = c('cyan', 'burlywood', 'darkgreen', 'blue'),
+          scales=list(draw=FALSE),
+          main = "Supervised Classification of Imagery")
+```
+
+```{r}
+test <- raster::extract(pr, training_points) %>% 
+  as.data.frame() %>% 
+  rename(id = ".")
+
+testProbs <- data.frame(
+  obs = as.factor(training_points$id),
+  pred = as.factor(test$id)
+) %>% 
+  mutate(correct = ifelse(obs == pred, 1, 0))
+
+confMatrix <- confusionMatrix(testProbs$obs, testProbs$pred)
+confMatrix
+```
+
+
