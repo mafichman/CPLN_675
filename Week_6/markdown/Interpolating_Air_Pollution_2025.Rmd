@@ -159,7 +159,7 @@ Let’s build some plots using ggplot. We begin with a map of ozone. How would y
 
 ```{r}
 ggplot() +
-  geom_sf(data=epa , aes(fill=ozoneHigh)) + 
+  geom_sf(data=epa , aes(fill=ozoneHigh), color = "transparent") + 
   scale_fill_viridis() +
   labs(title="Ozone concentration by grid cell, Mid-Atlantic region") +
   theme_void()
@@ -200,8 +200,8 @@ Can you make a second map that visualizes `sumDevelop`?
 
 ```{r}
 ggplot() +
-    geom_sf(data = epa2, aes(fill=HwyDensity)) + 
-    scale_fill_viridis(name="Highway density") +
+    geom_sf(data = epa2, aes(fill=distWater)) + 
+    scale_fill_viridis(name="Dist Water") +
     theme_void()
 ```
 
@@ -263,8 +263,8 @@ Overall, what do we make of this model?
 
 
 ```{r}
-reg <- lm(data=training, ozoneHigh ~ HwyDensity + distWater + sumDevelop + sumForest + distI95 + Population +
-            distCities)
+reg <- lm(data=training, ozoneHigh ~ HwyDensity + distWater + sumDevelop + sumForest + distI95 + Population + distCities)
+
 summary(reg)
 
 ```
@@ -292,8 +292,7 @@ Let’s make a new regression called `reg.lag` that includes spatial lag in the 
 
 
 ```{r}
-reg.lag <- lm(data=training, ozoneHigh ~ HwyDensity + distWater + sumDevelop + sumForest + distI95 + Population +
-            distCities+ Ave_ozoneH)
+reg.lag <- lm(data=training, ozoneHigh ~ HwyDensity + distWater + sumDevelop + sumForest + distI95 + Population + distCities + Ave_ozoneH)
 
 summary(reg.lag)
 ```
@@ -347,7 +346,7 @@ Notice that `group_by` allows us to calculate the average error by each regressi
 
 ***Which model is the strongest?***
 
-*Can you calculate `training.summary` and create MAPE in the mutate statement?*
+*Can you take `training.summary` and create MAPE in the mutate statement?*
 
 ```{r}
 training.summary %>%
@@ -366,7 +365,7 @@ We use the `predict` function to predict values for `epa2` using our model `reg.
 
 ```{r}
 epa2 <- epa2 %>%
-  mutate(reg.lag.pred = predict(reg.lag, epa2))
+  mutate(reg.lag.pred = predict(reg.lag, .))
 ```
 
 
