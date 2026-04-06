@@ -157,6 +157,8 @@ ggplot() +
 
 Option 1: Create training points in mapview
 
+First we place points on what we identify as clouds in our image.
+
 ```{r}
 # create training points in mapview
 
@@ -168,7 +170,7 @@ points <- viewRGB(image, r = 4, g = 3, b = 2) %>% editMap()
 clouds <- points$finished$geometry %>% st_sf() %>% mutate(class = "clouds", id = 1)
 ```
 
-Do this repeatedly for `water`, `developed`, `undeveloped` and then bind them together and call them `training_points`
+Do this iteratively and create objects for `water`, `developed`, `undeveloped` and then bind them together and call them `training_points`
 
 ```{r}
 
